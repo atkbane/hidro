@@ -1,0 +1,11 @@
+# Config / dev: no publicar como assets
+.git
+.wrangler
+node_modules
+__pycache__
+*.pyc
+*.pyo
+wrangler.jsonc
+.assetsignore
+.gitignore
+.gitattributes
