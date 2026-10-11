@@ -4,23 +4,59 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hidro — herramientas de cálculo</title>
+<meta name="description" content="Calculadoras de ingeniería hidráulica que ejecutan Python en el navegador (Pyodide).">
+<meta name="theme-color" content="#282828">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>💧</text></svg>">
 <style>
+  /* ── Gruvbox oficial (morhetz) · paleta dark ───────────────────────────
+     https://github.com/morhetz/gruvbox                                  */
+  :root {
+    color-scheme: dark;
+    /* Fondo */
+    --bg0-hard: #1d2021;
+    --bg0:      #282828;
+    --bg0-soft: #32302f;
+    --bg1:      #3c3836;
+    --bg2:      #504945;
+    --bg3:      #665c54;
+    --bg4:      #7c6f64;
+    /* Texto */
+    --fg0: #fbf1c7;
+    --fg1: #ebdbb2;
+    --fg2: #d5c4a1;
+    --fg3: #bdae93;
+    --fg4: #a89984;
+    --gray: #928374;
+    /* Colores (bright) */
+    --red:    #fb4934;
+    --green:  #b8bb26;
+    --yellow: #fabd2f;
+    --blue:   #83a598;
+    --purple: #d3869b;
+    --aqua:   #8ec07c;
+    --orange: #fe8019;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Roboto, system-ui, sans-serif; background: #f8fafc;
-         color: #1e293b; min-height: 100vh; display: flex; align-items: center;
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: 'Inter', 'Segoe UI', Roboto, system-ui, sans-serif; background: var(--bg0);
+         color: var(--fg1); min-height: 100vh; display: flex; align-items: center;
          justify-content: center; padding: 2rem 1rem; }
+  ::selection { background: var(--bg3); color: var(--fg0); }
   .wrap { width: 100%; max-width: 640px; }
-  h1 { font-size: 1.7rem; text-align: center; letter-spacing: -0.02em; }
-  .sub { text-align: center; color: #64748b; margin: 0.4rem 0 2rem; font-size: 0.95rem; }
-  ul { list-style: none; border-top: 1px solid #e2e8f0; }
+  h1 { font-size: 1.7rem; text-align: center; letter-spacing: -0.02em; color: var(--yellow); }
+  .sub { text-align: center; color: var(--fg4); margin: 0.4rem 0 2rem; font-size: 0.95rem; }
+  ul { list-style: none; border-top: 1px solid var(--bg1); }
   li a { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
-         padding: 1rem 0.5rem; border-bottom: 1px solid #e2e8f0; text-decoration: none;
+         padding: 1rem 0.5rem; border-bottom: 1px solid var(--bg1); text-decoration: none;
          color: inherit; transition: background 0.15s, padding 0.15s; }
-  li a:hover { background: #eef4f9; padding-left: 1rem; }
-  .name { font-weight: 600; color: #1e4663; }
-  .desc { color: #64748b; font-size: 0.85rem; flex: 1; }
-  .arrow { color: #2c5a7a; font-weight: 700; }
-  footer { text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.8rem; }
+  li a:hover, li a:focus-visible { background: var(--bg1); padding-left: 1rem; outline: none; }
+  li a:focus-visible { box-shadow: inset 3px 0 0 var(--aqua); }
+  .name { font-weight: 600; color: var(--aqua); transition: color 0.15s; }
+  li a:hover .name, li a:focus-visible .name { color: var(--yellow); }
+  .desc { color: var(--fg4); font-size: 0.85rem; flex: 1; }
+  .arrow { color: var(--orange); font-weight: 700; }
+  footer { text-align: center; margin-top: 2rem; color: var(--gray); font-size: 0.8rem; }
 </style>
 </head>
 <body>
