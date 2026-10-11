@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hidro — herramientas de cálculo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Roboto, system-ui, sans-serif; background: #f8fafc;
+         color: #1e293b; min-height: 100vh; display: flex; align-items: center;
+         justify-content: center; padding: 2rem 1rem; }
+  .wrap { width: 100%; max-width: 640px; }
+  h1 { font-size: 1.7rem; text-align: center; letter-spacing: -0.02em; }
+  .sub { text-align: center; color: #64748b; margin: 0.4rem 0 2rem; font-size: 0.95rem; }
+  ul { list-style: none; border-top: 1px solid #e2e8f0; }
+  li a { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+         padding: 1rem 0.5rem; border-bottom: 1px solid #e2e8f0; text-decoration: none;
+         color: inherit; transition: background 0.15s, padding 0.15s; }
+  li a:hover { background: #eef4f9; padding-left: 1rem; }
+  .name { font-weight: 600; color: #1e4663; }
+  .desc { color: #64748b; font-size: 0.85rem; flex: 1; }
+  .arrow { color: #2c5a7a; font-weight: 700; }
+  footer { text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hidro — herramientas de cálculo</h1>
+  <p class="sub">Cálculo y diseño para estructuras hidráulicas · Python en el navegador</p>
+  <ul>
+    <li><a href="./diseno_desarenador/"><span class="name">Diseño de Desarenador</span><span class="desc">Dimensiona naves de sedimentación · Camp, Shields, Zanke</span><span class="arrow">→</span></a></li>
+    <li><a href="./vaciado_desarenador/"><span class="name">Vaciado de Desarenador</span><span class="desc">Simulación orificio→vertedero · integración ODE</span><span class="arrow">→</span></a></li>
+    <li><a href="./perdida_de_carga_tuberias/"><span class="name">Pérdida de Carga en Tuberías</span><span class="desc">Fricción y pérdidas localizadas · DW, HW, Manning</span><span class="arrow">→</span></a></li>
+    <li><a href="./linea_de_energia/"><span class="name">Línea de Energía</span><span class="desc">Bernoulli encadenado · transiciones, rejillas, tranquilizadores</span><span class="arrow">→</span></a></li>
+  </ul>
+  <footer>Rufino Tapia — ingeniero civil hidráulico</footer>
+</div>
+</body>
+</html>

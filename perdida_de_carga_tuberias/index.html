@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pérdidas de Carga en Tuberías</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <style>
+        /* ────────────────────────────────────────────────────────────
+           RESET / BASE
+           ──────────────────────────────────────────────────────────── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+            font-size: 1.4rem;
+        }
+
+        /* ────────────────────────────────────────────────────────────
+           BARRA DE ESTADO / ERROR
+           ──────────────────────────────────────────────────────────── */
+        .status-bar {
+            text-align: center;
+            font-size: 0.78rem;
+            color: #888;
+            margin-bottom: 8px;
+            min-height: 1.2em;
+        }
+        .status-bar.ready { color: #27ae60; }
+        .status-bar.error { color: #e74c3c; }
+        .error-msg {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            background: #fff5f5;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        /* ────────────────────────────────────────────────────────────
+           GRID PRINCIPAL (3 COLUMNAS)
+           ──────────────────────────────────────────────────────────── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 1.1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        /* ─── PANEL GENÉRICO ─── */
+        .panel {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+        }
+        .panel h2 {
+            font-size: 1rem;
+            color: #1a1a2e;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+        }
+
+        /* ────────────────────────────────────────────────────────────
+           COLUMNA IZQUIERDA — DATOS
+           ──────────────────────────────────────────────────────────── */
+        .form-row {
+            margin-bottom: 10px;
+        }
+        .form-row label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 2px;
+            color: #555;
+        }
+        .form-row .caption {
+            display: block;
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+            font-style: italic;
+        }
+        .form-row input,
+        .form-row select {
+            width: 100%;
+            padding: 7px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: border-color 0.2s;
+        }
+        .form-row input:focus,
+        .form-row select:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
+        }
+        .form-row input.error,
+        .form-row select.error {
+            border-color: #e74c3c;
+        }
+
+        .btn {
+            padding: 9px 12px;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .btn:active { transform: scale(0.97); }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+            width: 100%;
+        }
+        .btn-secondary:hover { background: #d0d0d0; }
+
+        /* ────────────────────────────────────────────────────────────
+           COLUMNA CENTRAL — SEGMENTOS
+           ──────────────────────────────────────────────────────────── */
+        .seg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .seg-header h2 { margin: 0; border: none; padding: 0; }
+        .seg-header button {
+            padding: 6px 14px;
+            background: #4a6cf7;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .seg-header button:hover { background: #3b5de7; }
+
+        .seg-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .seg-item {
+            background: #f8f9fc;
+            border-radius: 8px;
+            padding: 10px 12px;
+            border: 1px solid #e4e7ef;
+        }
+        .seg-row-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 8px;
+            align-items: end;
+        }
+        .seg-num {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #4a6cf7;
+            align-self: center;
+            grid-column: 1 / -1;
+        }
+        .seg-item .field {
+            display: flex;
+            flex-direction: column;
+        }
+        .seg-item .field label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #777;
+            margin-bottom: 1px;
+        }
+        .seg-item .field input {
+            padding: 5px 6px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 0.82rem;
+            width: 100%;
+        }
+        .seg-item .field input.error { border-color: #e74c3c; }
+        .seg-item .field input:focus {
+            border-color: #4a6cf7;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(74,108,247,0.12);
+        }
+
+        .seg-item .btn-del {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            width: 32px;
+            height: 32px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .seg-item .btn-del:hover { background: #c0392b; }
+        .seg-item .btn-del:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .seg-row-result {
+            display: flex;
+            gap: 16px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #d4d8e0;
+            font-size: 0.78rem;
+            color: #555;
+            min-height: 1.4em;
+        }
+        .seg-row-result .pill {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+        .seg-row-result .pill-label { color: #888; font-size: 0.72rem; }
+        .seg-row-result .pill-value {
+            color: #1a1a2e;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .seg-row-result.dimmed { color: #aaa; font-style: italic; }
+
+        /* ────────────────────────────────────────────────────────────
+           COLUMNA DERECHA — RESUMEN
+           ──────────────────────────────────────────────────────────── */
+        .resumen-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .res-card {
+            background: #f8f9fc;
+            border-radius: 8px;
+            padding: 10px 12px;
+            border: 1px solid #e4e7ef;
+        }
+        .res-card.destacado {
+            background: linear-gradient(135deg, #4a6cf7, #3b5de7);
+            color: #fff;
+            border-color: transparent;
+        }
+        .res-card .res-label {
+            font-size: 0.72rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        .res-card.destacado .res-label { color: rgba(255,255,255,0.85); }
+        .res-card .res-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .res-card.destacado .res-value { color: #fff; font-size: 1.5rem; }
+        .res-card .res-unit {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 3px;
+            font-weight: 400;
+        }
+        .res-card.destacado .res-unit { color: rgba(255,255,255,0.85); }
+
+        /* ── Bar chart ── */
+        .bar-section {
+            margin-top: 12px;
+        }
+        .bar-section h3 {
+            font-size: 0.78rem;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .bar-row {
+            display: grid;
+            grid-template-columns: 50px 1fr 60px;
+            gap: 8px;
+            align-items: center;
+            font-size: 0.82rem;
+        }
+        .bar-label { color: #555; font-weight: 500; }
+        .bar-track {
+            background: #e4e7ef;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            background: linear-gradient(90deg, #4a6cf7, #3b5de7);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 6px;
+        }
+        .bar-value {
+            text-align: right;
+            font-weight: 600;
+            color: #1a1a2e;
+            font-variant-numeric: tabular-nums;
+        }
+        .bar-empty {
+            color: #aaa;
+            font-style: italic;
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 12px;
+        }
+
+        /* ────────────────────────────────────────────────────────────
+           MEMORIA DE CÁLCULO (colapsada por defecto)
+           ──────────────────────────────────────────────────────────── */
+        .summary-panel {
+            margin-top: 16px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .summary-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            user-select: none;
+            background: #f8f9fc;
+            border-bottom: 1px solid #e4e7ef;
+            transition: background 0.15s;
+        }
+        .summary-toggle:hover { background: #f0f2f5; }
+        .summary-toggle .chevron {
+            font-size: 10px;
+            color: #888;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        .summary-toggle .chevron.open { transform: rotate(90deg); }
+        .summary-toggle .toggle-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #555;
+            flex: 1;
+        }
+        .btn-copy {
+            padding: 5px 12px;
+            background: #4a6cf7;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-copy:hover { background: #3b5de7; }
+        .summary-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .summary-body.open { max-height: 700px; overflow-y: auto; }
+        .summary-body pre {
+            margin: 0;
+            padding: 14px 16px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            background: #fafbfc;
+        }
+        .summary-body .placeholder {
+            padding: 30px 16px;
+            text-align: center;
+            color: #aaa;
+            font-style: italic;
+        }
+
+        /* ────────────────────────────────────────────────────────────
+           LOADING OVERLAY
+           ──────────────────────────────────────────────────────────── */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #overlay.visible { display: flex; }
+        #overlay .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 36px 44px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 5px solid #e0e0e0;
+            border-top-color: #4a6cf7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #overlay .mensaje { font-size: 1rem; font-weight: 500; color: #333; }
+        #overlay .submensaje { font-size: 0.8rem; color: #888; margin-top: 6px; }
+
+        /* ────────────────────────────────────────────────────────────
+           RESPONSIVE
+           ──────────────────────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 500px) {
+            body { padding: 10px; }
+            h1 { font-size: 1.15rem; }
+            .seg-row-main {
+                grid-template-columns: 1fr 1fr;
+            }
+            .seg-num { grid-column: 1 / -1; }
+            .btn-del {
+                grid-column: 2;
+                justify-self: end;
+            }
+            .resumen-grid { grid-template-columns: 1fr; }
+            #overlay .card { padding: 24px 16px; margin: 0 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Pérdidas de Carga en Tuberías</h1>
+
+        <div class="status-bar" id="statusBar">Cargando Pyodide…</div>
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="main-grid">
+            <!-- ═══════════════ COLUMNA IZQUIERDA ═══════════════ -->
+            <div class="panel col-datos">
+                <h2>Datos del proyecto</h2>
+
+                <div class="form-row">
+                    <label for="titulo">Título del proyecto</label>
+                    <input type="text" id="titulo" placeholder="Nombre del proyecto…">
+                </div>
+
+                <div class="form-row">
+                    <label for="Q">Caudal Q (m³/s)</label>
+                    <input type="number" id="Q" value="0.05" step="any" min="0.0001">
+                </div>
+
+                <div class="form-row">
+                    <label for="metodo">Método</label>
+                    <select id="metodo">
+                        <option value="Darcy-Weisbach">Darcy-Weisbach</option>
+                        <option value="Hazen-Williams">Hazen-Williams</option>
+                        <option value="Manning">Manning</option>
+                    </select>
+                    <span class="caption" id="metodoCaption">Calcula f con Swamee-Jain, requiere rugosidad k</span>
+                </div>
+
+                <div class="form-row">
+                    <label for="k_entrada">K entrada</label>
+                    <input type="number" id="k_entrada" value="0.5" step="any" min="0">
+                    <span class="caption">→ aplica al Segmento 1 (usa V₁)</span>
+                </div>
+
+                <div class="form-row">
+                    <label for="k_salida">K salida</label>
+                    <input type="number" id="k_salida" value="1.0" step="any" min="0">
+                    <span class="caption">→ aplica al último segmento (usa Vₙ)</span>
+                </div>
+
+                <button class="btn btn-secondary" id="btnLimpiar">✖ Limpiar todo</button>
+            </div>
+
+            <!-- ═══════════════ COLUMNA CENTRAL ═══════════════ -->
+            <div class="panel col-segmentos">
+                <div class="seg-header">
+                    <h2>Segmentos</h2>
+                    <button onclick="agregarSegmento()">+ Agregar</button>
+                </div>
+                <div class="seg-list" id="segList"></div>
+            </div>
+
+            <!-- ═══════════════ COLUMNA DERECHA — RESUMEN ═══════════════ -->
+            <div class="panel col-resumen">
+                <h2>Resumen</h2>
+
+                <div class="resumen-grid">
+                    <div class="res-card">
+                        <div class="res-label">h fricción</div>
+                        <div class="res-value" id="resHf">—<span class="res-unit">m</span></div>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-label">h entrada</div>
+                        <div class="res-value" id="resHin">—<span class="res-unit">m</span></div>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-label">h salida</div>
+                        <div class="res-value" id="resHout">—<span class="res-unit">m</span></div>
+                    </div>
+                    <div class="res-card destacado">
+                        <div class="res-label">Total pérdidas</div>
+                        <div class="res-value" id="resHtotal">—<span class="res-unit">m</span></div>
+                    </div>
+                </div>
+
+                <div class="res-card" style="margin-bottom: 14px;">
+                    <div class="res-label">Potencia perdida</div>
+                    <div class="res-value" id="resPotencia">—<span class="res-unit">kW</span></div>
+                </div>
+
+                <div class="bar-section">
+                    <h3>Distribución de hf por segmento</h3>
+                    <div class="bar-chart" id="barChart">
+                        <div class="bar-empty">Sin datos. Ingrese segmentos para ver la distribución.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ MEMORIA DE CÁLCULO ═══════════════ -->
+        <div class="summary-panel" id="summaryPanel">
+            <div class="summary-toggle" id="summaryToggle">
+                <span class="chevron" id="summaryChevron">▶</span>
+                <span class="toggle-label">Memoria de cálculo</span>
+                <button class="btn-copy" id="btnCopy" onclick="event.stopPropagation(); copiarReporte()">📋 Copiar</button>
+            </div>
+            <div class="summary-body" id="summaryBody">
+                <div class="placeholder" id="summaryPlaceholder">La memoria de cálculo se actualiza automáticamente al modificar los datos.</div>
+                <pre id="resultText" style="display:none;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="overlay">
+        <div class="card">
+            <div class="spinner"></div>
+            <div class="mensaje" id="overlayMensaje">Preparando...</div>
+            <div class="submensaje" id="overlaySubmensaje"></div>
+        </div>
+    </div>
+
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        //  ESTADO GLOBAL
+        // ════════════════════════════════════════════════════════════════
+        let pyodide = null;
+        let pyodideReady = false;
+        let pyodideLoading = false;
+        let segCounter = 0;
+        let recalcTimer = null;
+        let lastResultado = null;
+
+        // ════════════════════════════════════════════════════════════════
+        //  ETIQUETAS DE COEFICIENTE Y DESCRIPCIÓN POR MÉTODO
+        // ════════════════════════════════════════════════════════════════
+        const METODO_COEF_LABELS = {
+            "Darcy-Weisbach": "k (mm)",
+            "Hazen-Williams": "C",
+            "Manning":        "n",
+        };
+        const METODO_COEF_DEFAULTS = {
+            "Darcy-Weisbach": "0.25",
+            "Hazen-Williams": "120",
+            "Manning":        "0.013",
+        };
+        const METODO_CAPTIONS = {
+            "Darcy-Weisbach": "Calcula f con Swamee-Jain, requiere rugosidad k",
+            "Hazen-Williams": "Empírica, solo para agua, usa coeficiente C",
+            "Manning":        "Extensión de canales; Darcy-Weisbach es preferible",
+        };
+
+        // ════════════════════════════════════════════════════════════════
+        //  OVERLAY
+        // ════════════════════════════════════════════════════════════════
+        function mostrarOverlay(msg, sub) {
+            document.getElementById('overlayMensaje').textContent = msg;
+            document.getElementById('overlaySubmensaje').textContent = sub || '';
+            document.getElementById('overlay').classList.add('visible');
+        }
+        function ocultarOverlay() {
+            document.getElementById('overlay').classList.remove('visible');
+        }
+
+        function setStatus(texto, clase) {
+            const el = document.getElementById('statusBar');
+            el.textContent = texto;
+            el.className = 'status-bar' + (clase ? ' ' + clase : '');
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+        function hideError() {
+            const el = document.getElementById('errorMsg');
+            el.textContent = '';
+            el.classList.remove('visible');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  MANEJO DINÁMICO DE SEGMENTOS
+        // ════════════════════════════════════════════════════════════════
+        function defaultSegData() {
+            const metodo = document.getElementById('metodo').value;
+            const coefDef = METODO_COEF_DEFAULTS[metodo] || "0.25";
+            return { L: "100", D: "0.3", coef: coefDef };
+        }
+        function coefLabel(metodo) {
+            return METODO_COEF_LABELS[metodo] || "k (mm)";
+        }
+
+        function agregarSegmento(data) {
+            if (!data) data = defaultSegData();
+            segCounter++;
+            const idx = segCounter;
+
+            const div = document.createElement('div');
+            div.className = 'seg-item';
+            div.dataset.idx = idx;
+
+            const metodo = document.getElementById('metodo').value;
+            const lbl = coefLabel(metodo);
+
+            div.innerHTML = `
+                <div class="seg-row-main">
+                    <div class="seg-num">Segmento ${idx}</div>
+                    <div class="field">
+                        <label>L (m)</label>
+                        <input type="number" class="inp-L" value="${data.L}" step="any" min="0.01">
+                    </div>
+                    <div class="field">
+                        <label>D (m)</label>
+                        <input type="number" class="inp-D" value="${data.D}" step="any" min="0.001">
+                    </div>
+                    <div class="field">
+                        <label class="lbl-coef">${lbl}</label>
+                        <input type="number" class="inp-coef" value="${data.coef}" step="any" min="0.0001">
+                    </div>
+                    <button class="btn-del" onclick="eliminarSegmento(this)" title="Eliminar segmento">✕</button>
+                </div>
+                <div class="seg-row-result dimmed" id="segResult-${idx}">
+                    <span class="pill"><span class="pill-label">V:</span> <span class="pill-value">—</span> m/s</span>
+                    <span class="pill"><span class="pill-label">hf:</span> <span class="pill-value">—</span> m</span>
+                </div>
+            `;
+
+            // Escuchar cambios para recálculo en vivo
+            div.querySelectorAll('input').forEach(inp => {
+                inp.addEventListener('input', scheduleRecalc);
+                inp.addEventListener('change', scheduleRecalc);
+            });
+
+            document.getElementById('segList').appendChild(div);
+            renumerarSegmentos();
+        }
+
+        function eliminarSegmento(btn) {
+            const item = btn.closest('.seg-item');
+            if (document.querySelectorAll('.seg-item').length <= 1) return;
+            item.remove();
+            renumerarSegmentos();
+            scheduleRecalc();
+        }
+
+        function renumerarSegmentos() {
+            const items = document.querySelectorAll('.seg-item');
+            items.forEach((item, i) => {
+                const num = item.querySelector('.seg-num');
+                if (num) num.textContent = `Segmento ${i + 1}`;
+            });
+        }
+
+        function actualizarLabelsCoeficiente() {
+            const metodo = document.getElementById('metodo').value;
+            const lbl = coefLabel(metodo);
+            document.querySelectorAll('.seg-item .lbl-coef').forEach(el => {
+                el.textContent = lbl;
+            });
+            const cap = document.getElementById('metodoCaption');
+            if (cap) cap.textContent = METODO_CAPTIONS[metodo] || '';
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  RECOLECCIÓN DE PARÁMETROS
+        // ════════════════════════════════════════════════════════════════
+        function obtenerParametros() {
+            const errores = [];
+
+            const titulo = document.getElementById('titulo').value.trim() || "—";
+            const Q = parseFloat(document.getElementById('Q').value);
+            const metodo = document.getElementById('metodo').value;
+            const k_entrada = parseFloat(document.getElementById('k_entrada').value);
+            const k_salida = parseFloat(document.getElementById('k_salida').value);
+
+            if (isNaN(Q) || Q <= 0) errores.push("Caudal Q debe ser > 0");
+            if (isNaN(k_entrada) || k_entrada < 0) errores.push("K entrada debe ser >= 0");
+            if (isNaN(k_salida) || k_salida < 0) errores.push("K salida debe ser >= 0");
+
+            const segmentos = [];
+            const segItems = document.querySelectorAll('.seg-item');
+            if (segItems.length === 0) {
+                return { params: null, errores: ["Debe haber al menos un segmento."] };
+            }
+
+            segItems.forEach((item, i) => {
+                const L = parseFloat(item.querySelector('.inp-L').value);
+                const D = parseFloat(item.querySelector('.inp-D').value);
+                const coef = parseFloat(item.querySelector('.inp-coef').value);
+                if (isNaN(L) || L <= 0) errores.push(`Seg. ${i+1}: L debe ser > 0`);
+                if (isNaN(D) || D <= 0) errores.push(`Seg. ${i+1}: D debe ser > 0`);
+                if (isNaN(coef) || coef <= 0) errores.push(`Seg. ${i+1}: coeficiente debe ser > 0`);
+                segmentos.push({ L, D, coef });
+            });
+
+            if (errores.length > 0) return { params: null, errores };
+
+            return {
+                params: { titulo, Q, metodo, k_entrada, k_salida, segmentos },
+                errores: [],
+            };
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  RECÁLCULO EN VIVO
+        // ════════════════════════════════════════════════════════════════
+        function scheduleRecalc() {
+            if (recalcTimer) clearTimeout(recalcTimer);
+            recalcTimer = setTimeout(recalcular, 80);
+        }
+
+        async function recalcular() {
+            if (!pyodideReady) {
+                const ok = await cargarPyodide();
+                if (!ok) return;
+            }
+
+            const { params, errores } = obtenerParametros();
+            if (errores.length > 0 || !params) {
+                // Inputs inválidos — limpiar resultados, sin error visible
+                limpiarResultadosUI();
+                return;
+            }
+
+            try {
+                const paramsJSON = JSON.stringify(params);
+                const resultadoJSON = pyodide.runPython(`
+import json
+import web_bridge
+params = json.loads('${paramsJSON.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+result = web_bridge.ejecutar_simulacion(params)
+json.dumps(result)
+                `);
+                const resultado = JSON.parse(resultadoJSON);
+
+                if (!resultado.exito) {
+                    limpiarResultadosUI();
+                    return;
+                }
+
+                lastResultado = resultado;
+                aplicarResultados(resultado);
+                hideError();
+            } catch (err) {
+                // Error de comunicación con Pyodide — silencioso en recálculo
+                console.error('recalcular:', err);
+            }
+        }
+
+        function aplicarResultados(res) {
+            // 1) Resultados por segmento (V, hf inline)
+            const segItems = document.querySelectorAll('.seg-item');
+            res.segmentos.forEach((s, i) => {
+                const item = segItems[i];
+                if (!item) return;
+                const row = item.querySelector('.seg-row-result');
+                if (!row) return;
+                row.classList.remove('dimmed');
+                const pills = row.querySelectorAll('.pill-value');
+                if (pills.length >= 2) {
+                    pills[0].textContent = s.V.toFixed(2);
+                    pills[1].textContent = s.hf.toFixed(4);
+                }
+            });
+
+            // 2) Tarjetas de resumen
+            document.getElementById('resHf').innerHTML = `${res.hf_total.toFixed(2)}<span class="res-unit">m</span>`;
+            document.getElementById('resHin').innerHTML = `${res.h_entrada.toFixed(2)}<span class="res-unit">m</span>`;
+            document.getElementById('resHout').innerHTML = `${res.h_salida.toFixed(2)}<span class="res-unit">m</span>`;
+            document.getElementById('resHtotal').innerHTML = `${res.h_total.toFixed(2)}<span class="res-unit">m</span>`;
+
+            const potKw = res.potencia_kw;
+            if (potKw >= 1000) {
+                document.getElementById('resPotencia').innerHTML = `${(potKw/1000).toFixed(2)}<span class="res-unit">MW</span>`;
+            } else {
+                document.getElementById('resPotencia').innerHTML = `${potKw.toFixed(2)}<span class="res-unit">kW</span>`;
+            }
+
+            // 3) Bar chart
+            renderBarChart(res.segmentos);
+
+            // 4) Memoria de cálculo (pre-formateada)
+            const pre = document.getElementById('resultText');
+            const ph = document.getElementById('summaryPlaceholder');
+            if (res.resultado_texto) {
+                pre.textContent = res.resultado_texto;
+                pre.style.display = 'block';
+                if (ph) ph.style.display = 'none';
+            }
+
+            setStatus(`Actualizado · ${res.segmentos.length} segmento(s)`, 'ready');
+        }
+
+        function limpiarResultadosUI() {
+            document.querySelectorAll('.seg-row-result').forEach(row => {
+                row.classList.add('dimmed');
+                const pills = row.querySelectorAll('.pill-value');
+                pills.forEach(p => p.textContent = '—');
+            });
+            ['resHf', 'resHin', 'resHout', 'resHtotal', 'resPotencia'].forEach(id => {
+                document.getElementById(id).innerHTML = '—<span class="res-unit"></span>';
+            });
+            const chart = document.getElementById('barChart');
+            chart.innerHTML = '<div class="bar-empty">Sin datos. Ingrese segmentos para ver la distribución.</div>';
+            setStatus('Ingrese datos válidos para calcular.', '');
+        }
+
+        function renderBarChart(segmentos) {
+            const chart = document.getElementById('barChart');
+            if (!segmentos || segmentos.length === 0) {
+                chart.innerHTML = '<div class="bar-empty">Sin datos.</div>';
+                return;
+            }
+            const maxHf = Math.max(...segmentos.map(s => s.hf), 1e-9);
+            chart.innerHTML = segmentos.map((s, i) => {
+                const pct = Math.max(2, (s.hf / maxHf) * 100);
+                return `
+                    <div class="bar-row">
+                        <span class="bar-label">Seg ${i + 1}</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: ${pct}%;"></div>
+                        </div>
+                        <span class="bar-value">${s.hf.toFixed(4)} m</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  MEMORIA DE CÁLCULO — TOGGLE
+        // ════════════════════════════════════════════════════════════════
+        function toggleSummary() {
+            const body = document.getElementById('summaryBody');
+            const chev = document.getElementById('summaryChevron');
+            body.classList.toggle('open');
+            chev.classList.toggle('open');
+        }
+        document.getElementById('summaryToggle').addEventListener('click', toggleSummary);
+
+        function copiarReporte() {
+            const text = document.getElementById('resultText').textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(
+                () => {
+                    const btn = document.getElementById('btnCopy');
+                    const orig = btn.textContent;
+                    btn.textContent = '✓ Copiado';
+                    setTimeout(() => { btn.textContent = orig; }, 1500);
+                },
+                () => showError('No se pudo copiar al portapapeles.')
+            );
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  LIMPIAR
+        // ════════════════════════════════════════════════════════════════
+        function limpiar() {
+            document.getElementById('titulo').value = '';
+            document.getElementById('Q').value = '0.05';
+            document.getElementById('metodo').value = 'Darcy-Weisbach';
+            document.getElementById('k_entrada').value = '0.5';
+            document.getElementById('k_salida').value = '1.0';
+
+            document.getElementById('segList').innerHTML = '';
+            segCounter = 0;
+            agregarSegmento({ L: "100", D: "0.3", coef: "0.25" });
+
+            document.getElementById('summaryBody').classList.remove('open');
+            document.getElementById('summaryChevron').classList.remove('open');
+            document.getElementById('resultText').style.display = 'none';
+            const ph = document.getElementById('summaryPlaceholder');
+            if (ph) { ph.style.display = 'block'; ph.textContent = 'La memoria de cálculo se actualiza automáticamente al modificar los datos.'; }
+
+            hideError();
+            actualizarLabelsCoeficiente();
+            limpiarResultadosUI();
+        }
+        document.getElementById('btnLimpiar').addEventListener('click', limpiar);
+
+        // ════════════════════════════════════════════════════════════════
+        //  CARGAR PYODIDE
+        // ════════════════════════════════════════════════════════════════
+        async function cargarPyodide() {
+            if (pyodideReady) return true;
+            if (pyodideLoading) {
+                while (!pyodideReady) await new Promise(r => setTimeout(r, 200));
+                return true;
+            }
+
+            pyodideLoading = true;
+            mostrarOverlay('Cargando Pyodide...', 'Descargando el motor de Python para el navegador');
+
+            try {
+                pyodide = await loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+                });
+
+                mostrarOverlay('Cargando módulos...', 'calculos.py y web_bridge.py');
+
+                const respCalculos = await fetch('calculos.py');
+                if (!respCalculos.ok) throw new Error('No se pudo descargar calculos.py');
+                pyodide.FS.writeFile('calculos.py', await respCalculos.text());
+
+                const respWebMain = await fetch('web_bridge.py');
+                if (!respWebMain.ok) throw new Error('No se pudo descargar web_bridge.py');
+                pyodide.FS.writeFile('web_bridge.py', await respWebMain.text());
+
+                pyodideReady = true;
+                ocultarOverlay();
+                return true;
+            } catch (err) {
+                ocultarOverlay();
+                showError('Error al cargar Pyodide: ' + err.message);
+                setStatus('Error al cargar el motor de cálculo', 'error');
+                pyodideLoading = false;
+                return false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  LISTENERS GLOBALES
+        // ════════════════════════════════════════════════════════════════
+        document.getElementById('metodo').addEventListener('change', () => {
+            actualizarLabelsCoeficiente();
+            scheduleRecalc();
+        });
+        document.getElementById('Q').addEventListener('input', scheduleRecalc);
+        document.getElementById('k_entrada').addEventListener('input', scheduleRecalc);
+        document.getElementById('k_salida').addEventListener('input', scheduleRecalc);
+        document.getElementById('titulo').addEventListener('input', scheduleRecalc);
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                // Enter recalcula inmediato (sin debounce)
+                if (recalcTimer) clearTimeout(recalcTimer);
+                recalcular();
+            }
+        });
+
+        // ════════════════════════════════════════════════════════════════
+        //  INICIALIZACIÓN
+        // ════════════════════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', () => {
+            agregarSegmento({ L: "100", D: "0.3", coef: "0.25" });
+            actualizarLabelsCoeficiente();
+            // Cargar Pyodide en background; el recálculo en vivo esperará
+            cargarPyodide().then(ok => {
+                if (ok) {
+                    setStatus('Motor listo · modificá los datos para recalcular', 'ready');
+                    scheduleRecalc();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

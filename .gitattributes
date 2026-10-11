@@ -1,0 +1,7 @@
+# Fijar saltos de línea LF en el repositorio (sitio web)
+* text=auto eol=lf
+
+# Archivos binarios: no transformar
+*.png binary
+*.jpg binary
+*.ico binary

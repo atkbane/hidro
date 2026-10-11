@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bernoulli — Línea de Energía</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<style>
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+/* ── Container ── */
+.container {
+    padding: 20px;
+    max-width: 600px;
+    width: 100%;
+}
+
+/* ── Header ── */
+.container h1 {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #1a1a2e;
+    margin-bottom: 12px;
+}
+
+/* ── Card ── */
+.card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 10px;
+}
+
+/* ── Node card ── */
+.node-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    overflow: hidden;
+    border-left: 4px solid #4a6cf7;
+    transition: border-color .2s;
+}
+.node-card.error-card {
+    border-left-color: #e74c3c;
+}
+.node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ef;
+    cursor: pointer;
+    user-select: none;
+}
+.node-header:hover {
+    background: #f0f2f5;
+}
+.node-chevron {
+    font-size: 10px;
+    color: #888;
+    transition: transform .2s;
+    flex-shrink: 0;
+}
+.node-chevron.collapsed {
+    transform: rotate(-90deg);
+}
+.node-type-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a6cf7;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.node-step {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+}
+.node-name {
+    flex: 1;
+    padding: 3px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333;
+    background: transparent;
+    transition: border .2s;
+}
+.node-name:focus {
+    outline: none;
+    border-color: #4a6cf7;
+    background: #fff;
+}
+.node-btn-calc {
+    padding: 4px 10px;
+    background: #4a6cf7;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+.node-btn-calc:hover { background: #3b5de7; }
+.node-btn-calc:disabled { background: #999; cursor: not-allowed; }
+.node-btn-remove {
+    width: 22px;
+    height: 22px;
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+    flex-shrink: 0;
+}
+.node-btn-remove:hover { background: #c0392b; }
+.node-body {
+    padding: 12px;
+    transition: max-height .3s ease, padding .3s ease;
+    overflow: hidden;
+}
+.node-body.collapsed {
+    max-height: 0 !important;
+    padding: 0 12px;
+}
+
+/* ── Form fields inside node ── */
+.fields-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    min-width: 70px;
+}
+.field label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #777;
+    margin-bottom: 2px;
+}
+.field input,
+.field select {
+    padding: 5px 6px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 13px;
+    width: 100%;
+    transition: border .2s;
+}
+.field input[type="number"]::-webkit-outer-spin-button,
+.field input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.field input[type="number"] {
+    -moz-appearance: textfield;
+}
+.field input:focus,
+.field select:focus {
+    outline: none;
+    border-color: #4a6cf7;
+    box-shadow: 0 0 0 2px rgba(74,108,247,0.12);
+}
+.field input.error {
+    border-color: #e74c3c;
+    background: #fff5f5;
+}
+
+/* ── Rejilla table ── */
+.rej-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 4px;
+}
+.rej-table th {
+    background: #f0f2f5;
+    padding: 4px 6px;
+    text-align: center;
+    font-weight: 600;
+    color: #555;
+    border: 1px solid #e0e0e0;
+}
+.rej-table td {
+    padding: 3px 4px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+}
+.rej-table td input {
+    width: 60px;
+    padding: 3px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+}
+.rej-table td input:focus {
+    outline: none;
+    border-color: #4a6cf7;
+}
+.rej-table .btn-del-row {
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.rej-table .btn-del-row:hover { background: #c0392b; }
+.rej-add-btn {
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: #818cf8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+.rej-add-btn:hover { background: #6366f1; }
+
+/* ── Arrow between nodes ── */
+.arrow {
+    text-align: center;
+    color: #aaa;
+    font-size: 14px;
+    padding: 2px 0;
+    user-select: none;
+}
+
+/* ── Node result ── */
+.node-result {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #f8f9fc;
+    border-radius: 6px;
+    border: 1px solid #e4e7ef;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #333;
+    word-wrap: break-word;
+}
+.node-result.empty {
+    color: #aaa;
+    font-style: italic;
+}
+.node-result .regimen-sub { color: #2563eb; font-weight: 600; }
+.node-result .regimen-sup { color: #dc2626; font-weight: 600; }
+.node-result .regimen-crit { color: #d97706; font-weight: 600; }
+
+/* ── Buttons ── */
+.btn {
+    padding: 9px 12px;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.btn-primary {
+    background: linear-gradient(135deg, #4a6cf7, #3b5de7);
+    color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+    box-shadow: 0 3px 10px rgba(74,108,247,0.35);
+}
+.btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+.btn-secondary:hover:not(:disabled) { background: #d0d0d0; }
+
+/* ── Split button ── */
+.add-split {
+    display: flex;
+    position: relative;
+}
+.btn-add-main {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 7px 0 0 7px;
+    cursor: pointer;
+    background: #2a7;
+    color: #fff;
+    transition: background .2s;
+}
+.btn-add-main:hover { background: #1a6; }
+.btn-add-arrow {
+    width: 30px;
+    padding: 0;
+    font-size: 12px;
+    border: none;
+    border-radius: 0 7px 7px 0;
+    cursor: pointer;
+    background: #1a6;
+    color: #fff;
+    transition: background .2s;
+}
+.btn-add-arrow:hover { background: #158; }
+.add-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 160px;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    z-index: 100;
+    overflow: hidden;
+}
+.add-dropdown.open { display: block; }
+.dd-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.dd-item:hover { background: #f0f2f5; }
+.dd-item.active {
+    background: #eef2ff;
+    color: #4a6cf7;
+    font-weight: 600;
+}
+.dd-item:not(:last-child) {
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.btn-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* ── Results ── */
+.results-box {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    overflow: hidden;
+}
+.results-box pre {
+    margin: 0;
+    padding: 16px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    background: #fafafa;
+    min-height: 300px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+.results-box .placeholder {
+    padding: 40px 16px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+/* ── Error box ── */
+.error-box {
+    background: #fee;
+    border: 1px solid #d32;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    color: #a00;
+    font-size: 13px;
+    font-weight: 500;
+    display: none;
+}
+
+/* ── Summary panel ── */
+.summary-panel {
+    margin-top: 12px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    overflow: hidden;
+}
+.summary-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ef;
+}
+.summary-toggle:hover { background: #f0f2f5; }
+.summary-toggle .chevron {
+    font-size: 10px;
+    color: #888;
+    transition: transform .2s;
+}
+.summary-toggle .chevron.open { transform: rotate(90deg); }
+.summary-toggle span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+}
+.summary-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .3s ease;
+}
+.summary-body.open {
+    max-height: 500px;
+    overflow-y: auto;
+}
+.summary-body pre {
+    margin: 0;
+    padding: 14px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background: #fafafa;
+}
+
+/* ── Loading overlay ── */
+#loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,.55);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+}
+#loading-overlay.active { display: flex; }
+.spinner {
+    width: 48px; height: 48px;
+    border: 5px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-overlay p {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* ── Responsive ── */
+@media (max-width: 500px) {
+    .container { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p id="loading-message">Cargando Pyodide...</p>
+</div>
+
+<div class="container">
+    <h1>Bernoulli</h1>
+
+    <div id="error-box" class="error-box"></div>
+
+    <div id="nodes-container"></div>
+
+    <div class="add-split" id="add-split">
+        <button class="btn btn-add-main" id="btn-add-node">+ Agregar Nodo</button>
+        <button class="btn btn-add-arrow" id="btn-add-arrow">▾</button>
+        <div class="add-dropdown" id="add-dropdown">
+            <div class="dd-item" data-type="Transición">Transición</div>
+            <div class="dd-item" data-type="Tranquilizadores">Tranquilizadores</div>
+            <div class="dd-item" data-type="Rejillas Serie">Rejillas Serie</div>
+            <div class="dd-item" data-type="Pérdida Directa">Pérdida Directa</div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-primary" id="btn-calc-all">⚙ Calcular Cadena</button>
+        <button class="btn btn-secondary" id="btn-clear">✖ Limpiar</button>
+    </div>
+
+    <div class="summary-panel" id="summary-panel" style="display:none;">
+        <div class="summary-toggle" id="summary-toggle">
+            <span class="chevron" id="summary-chevron">▶</span>
+            <span>Resumen completo</span>
+        </div>
+        <div class="summary-body" id="summary-body">
+            <pre id="result-text"></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    // ── DOM refs ──
+    const $ = id => document.getElementById(id);
+    const nodesContainer = $('nodes-container');
+    const btnAdd = $('btn-add-node');
+    const btnAddArrow = $('btn-add-arrow');
+    const addDropdown = $('add-dropdown');
+    const ddItems = addDropdown.querySelectorAll('.dd-item');
+    const btnCalcAll = $('btn-calc-all');
+    const btnClear = $('btn-clear');
+    const resultPre = $('result-text');
+    const errorBox = $('error-box');
+    const overlay = $('loading-overlay');
+    const loadMsg = $('loading-message');
+    const summaryPanel = $('summary-panel');
+    const summaryBody = $('summary-body');
+    const summaryChevron = $('summary-chevron');
+
+    let pyodide = null;
+    let pyodideReady = false;
+    let currentType = 'Transición';
+    let nodeCounter = 0;
+
+    // ── Highlight active dropdown item ──
+    function updateActiveDDItem() {
+        ddItems.forEach(el => {
+            el.classList.toggle('active', el.dataset.type === currentType);
+        });
+        btnAdd.textContent = `+ Agregar ${currentType}`;
+    }
+    updateActiveDDItem();
+    const nodeData = {};  // idx → { type, collapsed, ... }
+
+    // ── Overlay ──
+    function showOverlay(msg) {
+        loadMsg.textContent = msg || 'Procesando...';
+        overlay.classList.add('active');
+    }
+    function hideOverlay() { overlay.classList.remove('active'); }
+
+    // ── Error ──
+    function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.style.display = 'block';
+    }
+    function hideError() { errorBox.style.display = 'none'; }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  NODE MANAGEMENT
+    // ══════════════════════════════════════════════════════════════════
+
+    function addNode(type) {
+        nodeCounter++;
+        const idx = nodeCounter;
+        const isFirst = (Object.keys(nodeData).length === 0);
+        const actualType = isFirst ? 'Sección Inicial' : type;
+
+        nodeData[idx] = { type: actualType, collapsed: false };
+
+        const card = document.createElement('div');
+        card.className = 'node-card';
+        card.id = `node-${idx}`;
+
+        const removeVisible = isFirst ? 'visibility:hidden' : '';
+
+        card.innerHTML = `
+            <div class="node-header" onclick="toggleNode(${idx})">
+                <span class="node-chevron" id="chevron-${idx}">▼</span>
+                <span class="node-type-badge">${actualType}</span>
+                <span class="node-step">Paso ${getNodeCount()}</span>
+                <input class="node-name" id="name-${idx}" placeholder="nombre"
+                       onclick="event.stopPropagation()" value="">
+                <button class="node-btn-calc" onclick="event.stopPropagation(); calcNode(${idx})">Calcular</button>
+                <button class="node-btn-remove" style="${removeVisible}"
+                        onclick="event.stopPropagation(); removeNode(${idx})">✕</button>
+            </div>
+            <div class="node-body" id="body-${idx}">
+                ${buildFieldsHTML(actualType, idx)}
+                <div class="node-result empty" id="result-${idx}">—</div>
+            </div>
+        `;
+
+        nodesContainer.appendChild(card);
+        renumberNodes();
+    }
+
+    window.removeNode = function(idx) {
+        const el = $(`node-${idx}`);
+        if (el) el.remove();
+        delete nodeData[idx];
+        renumberNodes();
+    };
+
+    window.toggleNode = function(idx) {
+        const body = $(`body-${idx}`);
+        const chevron = $(`chevron-${idx}`);
+        nodeData[idx].collapsed = !nodeData[idx].collapsed;
+        body.classList.toggle('collapsed', nodeData[idx].collapsed);
+        chevron.classList.toggle('collapsed', nodeData[idx].collapsed);
+    };
+
+    function getNodeCount() {
+        return document.querySelectorAll('.node-card').length + 1;
+    }
+
+    function renumberNodes() {
+        const cards = document.querySelectorAll('.node-card');
+        cards.forEach((card, i) => {
+            const step = card.querySelector('.node-step');
+            if (step) step.textContent = `Paso ${i + 1}`;
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  FIELD BUILDERS
+    // ══════════════════════════════════════════════════════════════════
+
+    function buildFieldsHTML(type, idx) {
+        switch(type) {
+            case 'Sección Inicial': return buildInitialFields(idx);
+            case 'Transición': return buildTransicionFields(idx);
+            case 'Tranquilizadores': return buildTranqFields(idx);
+            case 'Rejillas Serie': return buildRejillasFields(idx);
+            case 'Pérdida Directa': return buildPerdidaFields(idx);
+            default: return '';
+        }
+    }
+
+    function field(label, id, type, attrs) {
+        const extra = attrs || '';
+        return `<div class="field"><label>${label}</label>
+                <input type="${type}" id="${id}" ${extra}></div>`;
+    }
+
+    function fieldSelect(label, id, options) {
+        const opts = options.map(o => `<option value="${o}">${o}</option>`).join('');
+        return `<div class="field"><label>${label}</label>
+                <select id="${id}">${opts}</select></div>`;
+    }
+
+    function buildInitialFields(idx) {
+        return `<div class="fields-row">
+            ${field('Q (m³/s)', `f${idx}_Q`, 'number', 'step="any" min="0" value="0"')}
+            ${field('b (m)', `f${idx}_b`, 'number', 'step="any" min="0" value="0"')}
+            ${field('y (m)', `f${idx}_y`, 'number', 'step="any" min="0" value="0"')}
+            ${field('z (m)', `f${idx}_z`, 'number', 'step="any" min="0" value="0"')}
+        </div>`;
+    }
+
+    function buildTransicionFields(idx) {
+        return `<div class="fields-row">
+            ${field('b nuevo (m)', `f${idx}_b_nuevo`, 'number', 'step="any" min="0" value="0"')}
+            ${field('z nuevo (m)', `f${idx}_z_nuevo`, 'number', 'step="any" min="0" value="0"')}
+            ${fieldSelect('Tipo', `f${idx}_tipo_trans`, ['contraccion', 'expansion'])}
+            ${field('Q opcional', `f${idx}_Q_opt`, 'number', 'step="any" placeholder="vacío = hereda"')}
+        </div>`;
+    }
+
+    function buildTranqFields(idx) {
+        return `<div class="fields-row">
+            ${field('Longitud (m)', `f${idx}_longitud`, 'number', 'step="any" min="0" value="0"')}
+            ${field('Coef. c', `f${idx}_c`, 'number', 'step="any" min="0" value="2.42"')}
+            ${field('Esp. e (mm)', `f${idx}_e`, 'number', 'step="any" min="0" value="0"')}
+            ${field('Sep. s (mm)', `f${idx}_s`, 'number', 'step="any" min="0" value="0"')}
+            ${field('Ángulo (°)', `f${idx}_ang`, 'number', 'step="1" min="0" max="180" value="0"')}
+        </div>`;
+    }
+
+    function buildRejillasFields(idx) {
+        return `
+            <table class="rej-table" id="rej-table-${idx}">
+                <thead><tr>
+                    <th>e (mm)</th><th>s (mm)</th><th>b (m)</th>
+                    <th>z (m)</th><th>ang (°)</th><th>coef</th><th></th>
+                </tr></thead>
+                <tbody id="rej-body-${idx}"></tbody>
+            </table>
+            <button class="rej-add-btn" onclick="addRejillaRow(${idx})">+ Rejilla</button>
+        `;
+    }
+
+    function buildPerdidaFields(idx) {
+        return `<div class="fields-row">
+            ${field('Δy (m)', `f${idx}_delta_y`, 'number', 'step="any" value="0"')}
+        </div>`;
+    }
+
+    // ── Rejilla rows ──
+    window.addRejillaRow = function(idx) {
+        const tbody = $(`rej-body-${idx}`);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="number" class="rej-e" step="any" min="0" value="0"></td>
+            <td><input type="number" class="rej-s" step="any" min="0" value="0"></td>
+            <td><input type="number" class="rej-b" step="any" min="0" value="0" placeholder="auto"></td>
+            <td><input type="number" class="rej-z" step="any" value="0" placeholder="auto"></td>
+            <td><input type="number" class="rej-ang" step="1" min="0" max="180" value="0"></td>
+            <td><input type="number" class="rej-coef" step="any" min="0" value="2.42"></td>
+            <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>
+        `;
+        tbody.appendChild(row);
+    };
+
+    // ══════════════════════════════════════════════════════════════════
+    //  COLLECT PARAMETERS
+    // ══════════════════════════════════════════════════════════════════
+
+    function collectParams() {
+        const cards = document.querySelectorAll('.node-card');
+        const nodos = [];
+        const errors = [];
+
+        cards.forEach((card, i) => {
+            const idx = parseInt(card.id.split('-')[1]);
+            const type = nodeData[idx].type;
+            const name = $(`name-${idx}`).value || `Seccion ${i + 1}`;
+            const nodo = { tipo: type, nombre: name };
+
+            if (type === 'Sección Inicial') {
+                nodo.Q = parseFloat($(`f${idx}_Q`).value);
+                nodo.b = parseFloat($(`f${idx}_b`).value);
+                nodo.y = parseFloat($(`f${idx}_y`).value);
+                nodo.z = parseFloat($(`f${idx}_z`).value);
+                if (isNaN(nodo.Q) || nodo.Q <= 0) errors.push(`Paso ${i+1}: Q debe ser > 0`);
+                if (isNaN(nodo.b) || nodo.b <= 0) errors.push(`Paso ${i+1}: b debe ser > 0`);
+                if (isNaN(nodo.y) || nodo.y <= 0) errors.push(`Paso ${i+1}: y debe ser > 0`);
+            }
+            else if (type === 'Transición') {
+                nodo.b_nuevo = parseFloat($(`f${idx}_b_nuevo`).value);
+                nodo.z_nuevo = parseFloat($(`f${idx}_z_nuevo`).value);
+                nodo.tipo_trans = $(`f${idx}_tipo_trans`).value;
+                const qOpt = $(`f${idx}_Q_opt`).value;
+                nodo.Q_opt = qOpt ? parseFloat(qOpt) : null;
+                if (isNaN(nodo.b_nuevo) || nodo.b_nuevo <= 0) errors.push(`Paso ${i+1}: b nuevo debe ser > 0`);
+            }
+            else if (type === 'Tranquilizadores') {
+                nodo.longitud = parseFloat($(`f${idx}_longitud`).value);
+                nodo.c = parseFloat($(`f${idx}_c`).value);
+                nodo.e = parseFloat($(`f${idx}_e`).value);
+                nodo.s = parseFloat($(`f${idx}_s`).value);
+                nodo.ang = parseFloat($(`f${idx}_ang`).value);
+                if (isNaN(nodo.longitud) || nodo.longitud <= 0) errors.push(`Paso ${i+1}: Longitud debe ser > 0`);
+            }
+            else if (type === 'Rejillas Serie') {
+                const rows = $(`rej-body-${idx}`).querySelectorAll('tr');
+                nodo.rejillas = [];
+                rows.forEach((row, ri) => {
+                    const r = {
+                        e: parseFloat(row.querySelector('.rej-e').value) || 0,
+                        s: parseFloat(row.querySelector('.rej-s').value) || 0,
+                        ang: parseFloat(row.querySelector('.rej-ang').value) || 0,
+                        coef: parseFloat(row.querySelector('.rej-coef').value) || 2.42,
+                    };
+                    const bVal = parseFloat(row.querySelector('.rej-b').value);
+                    const zVal = parseFloat(row.querySelector('.rej-z').value);
+                    if (!isNaN(bVal) && bVal > 0) r.b = bVal;
+                    if (!isNaN(zVal)) r.z = zVal;
+                    nodo.rejillas.push(r);
+                });
+                if (nodo.rejillas.length === 0) errors.push(`Paso ${i+1}: al menos 1 rejilla requerida`);
+            }
+            else if (type === 'Pérdida Directa') {
+                nodo.delta_y = parseFloat($(`f${idx}_delta_y`).value);
+                if (isNaN(nodo.delta_y)) errors.push(`Paso ${i+1}: Δy requerido`);
+            }
+
+            nodos.push(nodo);
+        });
+
+        return { nodos, errors };
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  CALCULATE NODE (individual)
+    // ══════════════════════════════════════════════════════════════════
+
+    window.calcNode = async function(idx) {
+        hideError();
+        // Collect all nodes up to this one
+        const cards = document.querySelectorAll('.node-card');
+        const nodos = [];
+        let targetReached = false;
+
+        for (const card of cards) {
+            const cardIdx = parseInt(card.id.split('-')[1]);
+            const type = nodeData[cardIdx].type;
+            const name = $(`name-${cardIdx}`).value || `Seccion ${nodos.length + 1}`;
+            const nodo = { tipo: type, nombre: name };
+
+            if (type === 'Sección Inicial') {
+                nodo.Q = parseFloat($(`f${cardIdx}_Q`).value);
+                nodo.b = parseFloat($(`f${cardIdx}_b`).value);
+                nodo.y = parseFloat($(`f${cardIdx}_y`).value);
+                nodo.z = parseFloat($(`f${cardIdx}_z`).value);
+            }
+            else if (type === 'Transición') {
+                nodo.b_nuevo = parseFloat($(`f${cardIdx}_b_nuevo`).value);
+                nodo.z_nuevo = parseFloat($(`f${cardIdx}_z_nuevo`).value);
+                nodo.tipo_trans = $(`f${cardIdx}_tipo_trans`).value;
+                const qOpt = $(`f${cardIdx}_Q_opt`).value;
+                nodo.Q_opt = qOpt ? parseFloat(qOpt) : null;
+            }
+            else if (type === 'Tranquilizadores') {
+                nodo.longitud = parseFloat($(`f${cardIdx}_longitud`).value);
+                nodo.c = parseFloat($(`f${cardIdx}_c`).value);
+                nodo.e = parseFloat($(`f${cardIdx}_e`).value);
+                nodo.s = parseFloat($(`f${cardIdx}_s`).value);
+                nodo.ang = parseFloat($(`f${cardIdx}_ang`).value);
+            }
+            else if (type === 'Rejillas Serie') {
+                const rows = $(`rej-body-${cardIdx}`).querySelectorAll('tr');
+                nodo.rejillas = [];
+                rows.forEach(row => {
+                    const r = {
+                        e: parseFloat(row.querySelector('.rej-e').value) || 0,
+                        s: parseFloat(row.querySelector('.rej-s').value) || 0,
+                        ang: parseFloat(row.querySelector('.rej-ang').value) || 0,
+                        coef: parseFloat(row.querySelector('.rej-coef').value) || 2.42,
+                    };
+                    const bVal = parseFloat(row.querySelector('.rej-b').value);
+                    const zVal = parseFloat(row.querySelector('.rej-z').value);
+                    if (!isNaN(bVal) && bVal > 0) r.b = bVal;
+                    if (!isNaN(zVal)) r.z = zVal;
+                    nodo.rejillas.push(r);
+                });
+            }
+            else if (type === 'Pérdida Directa') {
+                nodo.delta_y = parseFloat($(`f${cardIdx}_delta_y`).value);
+            }
+
+            nodos.push(nodo);
+            if (cardIdx === idx) { targetReached = true; break; }
+        }
+
+        if (!targetReached) return;
+        await runChain(nodos, idx);
+    };
+
+    // ══════════════════════════════════════════════════════════════════
+    //  CALCULATE ALL
+    // ══════════════════════════════════════════════════════════════════
+
+    async function calcAll() {
+        hideError();
+        const { nodos, errors } = collectParams();
+        if (errors.length > 0) {
+            showError(errors.join('; '));
+            return;
+        }
+        await runChain(nodos, null);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  RUN CHAIN (shared logic)
+    // ══════════════════════════════════════════════════════════════════
+
+    async function runChain(nodos, singleIdx) {
+        if (!pyodideReady) {
+            btnCalcAll.disabled = true;
+            await initPyodide();
+        }
+        if (!pyodideReady) {
+            btnCalcAll.disabled = false;
+            return;
+        }
+
+        showOverlay('Calculando...');
+        try {
+            const paramsJSON = JSON.stringify(nodos);
+            const resultJSON = pyodide.runPython(`
+import json
+import web_bridge
+nodos = json.loads('${paramsJSON.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+result = web_bridge.ejecutar_cadena(nodos)
+json.dumps(result)
+            `);
+            const result = JSON.parse(resultJSON);
+
+            hideOverlay();
+
+            if (!result.ok) {
+                showError(result.error || 'Error desconocido.');
+                resultPre.textContent = '';
+                return;
+            }
+
+            // Update individual node results
+            const cards = document.querySelectorAll('.node-card');
+            result.resultados.forEach((r, i) => {
+                if (i < cards.length) {
+                    const cardIdx = parseInt(cards[i].id.split('-')[1]);
+                    const resEl = $(`result-${cardIdx}`);
+                    if (resEl) {
+                        resEl.innerHTML = formatResultHTML(r);
+                        resEl.className = 'node-result';
+                        // Color the card border
+                        cards[i].classList.remove('error-card');
+                    }
+                }
+            });
+
+            // Show full text in summary panel
+            resultPre.textContent = result.texto;
+            summaryPanel.style.display = 'block';
+
+        } catch (err) {
+            hideOverlay();
+            showError('Error: ' + err.message);
+            console.error(err);
+        }
+
+        btnCalcAll.disabled = false;
+    }
+
+    function formatResultHTML(r) {
+        const d = r.datos;
+        const regimenClass = {
+            'Subcrítico': 'regimen-sub',
+            'Supercrítico': 'regimen-sup',
+            'Crítico': 'regimen-crit',
+        }[d.regimen] || '';
+
+        let html = `<b>${r.nombre}</b><br>`;
+        html += `Q: ${d.Q.toFixed(2)} m³/s | b: ${d.b.toFixed(2)} m | y: ${d.y.toFixed(2)} m | z: ${d.z.toFixed(2)} m<br>`;
+        html += `Fr: ${d.Fr.toFixed(2)} <span class="${regimenClass}">(${d.regimen})</span> | v: ${d.vel.toFixed(2)} m/s | hv: ${d.hv.toFixed(2)} m<br>`;
+        html += `N.Agua: ${d.n_agua.toFixed(2)} m | N.Energía: ${d.n_energia.toFixed(2)} m`;
+        if (d.hl > 0) {
+            html += `<br>hL: ${d.hl.toFixed(2)} m`;
+        }
+        return html;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  PYODIDE INIT
+    // ══════════════════════════════════════════════════════════════════
+
+    async function initPyodide() {
+        if (pyodideReady) return;
+        showOverlay('Cargando Pyodide (primera vez puede tardar ~10s)...');
+        try {
+            pyodide = await loadPyodide({
+                indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+            });
+            const r1 = await fetch('core.py');
+            const r2 = await fetch('web_bridge.py');
+            if (!r1.ok || !r2.ok) throw new Error('No se pudieron descargar core.py/web_bridge.py.');
+            pyodide.FS.writeFile('/core.py', await r1.text());
+            pyodide.FS.writeFile('/web_bridge.py', await r2.text());
+            pyodide.runPython(`
+import sys
+sys.path.insert(0, '/')
+exec(open('/core.py').read())
+exec(open('/web_bridge.py').read())
+            `);
+            pyodideReady = true;
+        } catch (err) {
+            showError('Error al cargar Pyodide: ' + err.message);
+            console.error(err);
+        } finally {
+            hideOverlay();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  CLEAR
+    // ══════════════════════════════════════════════════════════════════
+
+    function clearAll() {
+        nodesContainer.innerHTML = '';
+        for (const k in nodeData) delete nodeData[k];
+        nodeCounter = 0;
+        addNode();
+        resultPre.textContent = '';
+        summaryPanel.style.display = 'none';
+        summaryBody.classList.remove('open');
+        summaryChevron.classList.remove('open');
+        hideError();
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  EVENTS
+    // ══════════════════════════════════════════════════════════════════
+
+    btnAdd.addEventListener('click', () => addNode(currentType));
+    btnCalcAll.addEventListener('click', calcAll);
+    btnClear.addEventListener('click', clearAll);
+
+    btnAddArrow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addDropdown.classList.toggle('open');
+    });
+
+    ddItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentType = item.dataset.type;
+            updateActiveDDItem();
+            addDropdown.classList.remove('open');
+        });
+    });
+
+    document.addEventListener('click', () => {
+        addDropdown.classList.remove('open');
+    });
+
+    $('summary-toggle').addEventListener('click', () => {
+        summaryBody.classList.toggle('open');
+        summaryChevron.classList.toggle('open');
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+            calcAll();
+        }
+    });
+
+    // ── Init ──
+    addNode();
+    window.addEventListener('load', () => setTimeout(initPyodide, 500));
+
+})();
+</script>
+</body>
+</html>

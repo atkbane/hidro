@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación de Vaciado de Desarenador</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #1a1a2e;
+            margin-bottom: 24px;
+            font-size: 1.6rem;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 20px;
+        }
+
+        /* ---------- FORMULARIO ---------- */
+        .panel-form {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .panel-form h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: #1a1a2e;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 6px;
+        }
+        .form-row label {
+            flex: 0 0 120px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .form-row input {
+            flex: 1;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            min-width: 0;
+            transition: border-color 0.2s;
+        }
+        .form-row input:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
+        }
+        .form-row input.error {
+            border-color: #e74c3c;
+        }
+        .form-row .unidad {
+            flex: 0 0 44px;
+            font-size: 0.75rem;
+            color: #888;
+            text-align: right;
+        }
+        .form-row .nombre-param {
+            flex: 0 0 120px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #4a6cf7;
+            margin: 16px 0 8px;
+        }
+        .btn-calcular {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #4a6cf7, #3b5de7);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            margin-top: 8px;
+        }
+        .btn-calcular:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74,108,247,0.35);
+        }
+        .btn-calcular:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error-msg {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: 8px;
+            display: none;
+        }
+        .error-msg.visible {
+            display: block;
+        }
+
+        /* ---------- RESULTADOS ---------- */
+        .panel-resultados {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .panel-grafico {
+            background: #fff;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        #grafico {
+            width: 100%;
+            height: 480px;
+        }
+
+        .panel-resumen {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        .resumen-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fc;
+            border-radius: 8px;
+        }
+        .resumen-item .valor {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        .resumen-item .etiqueta {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* ---------- OVERLAY DE CARGA ---------- */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #overlay.visible {
+            display: flex;
+        }
+        #overlay .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 40px 48px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 5px solid #e0e0e0;
+            border-top-color: #4a6cf7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #overlay .mensaje {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+        }
+        #overlay .submensaje {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 6px;
+        }
+
+        /* ---------- RESPONSIVE ---------- */
+        @media (max-width: 800px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            #grafico {
+                height: 360px;
+            }
+            h1 { font-size: 1.3rem; }
+            .panel-resumen {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            #grafico { height: 280px; }
+            .panel-resumen { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .resumen-item .valor { font-size: 1.1rem; }
+            #overlay .card { padding: 28px 20px; margin: 0 16px; }
+            .form-row { flex-wrap: wrap; }
+            .form-row label { flex: 0 0 100%; margin-bottom: 2px; }
+            .form-row .unidad { flex: 0 0 auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏭 Vaciado de Desarenador</h1>
+        <div class="main-grid">
+            <!-- FORMULARIO -->
+            <div class="panel-form">
+                <h2>Parámetros</h2>
+
+                <div class="section-title">Geometría del desarenador</div>
+                <div class="form-row">
+                    <label for="L">L (largo)</label>
+                    <input type="number" id="L" value="20" step="any" min="0.01">
+                    <span class="unidad">m</span>
+                </div>
+                <div class="form-row">
+                    <label for="W">W (ancho)</label>
+                    <input type="number" id="W" value="5" step="any" min="0.01">
+                    <span class="unidad">m</span>
+                </div>
+
+                <div class="section-title">Compuerta</div>
+                <div class="form-row">
+                    <label for="B">B (ancho comp.)</label>
+                    <input type="number" id="B" value="1" step="any" min="0.01">
+                    <span class="unidad">m</span>
+                </div>
+                <div class="form-row">
+                    <label for="d">d (altura comp.)</label>
+                    <input type="number" id="d" value="0.5" step="any" min="0.001">
+                    <span class="unidad">m</span>
+                </div>
+                <div class="form-row">
+                    <label for="t_open">t_open</label>
+                    <input type="number" id="t_open" value="60" step="any" min="0.1">
+                    <span class="unidad">s</span>
+                </div>
+
+                <div class="section-title">Condiciones iniciales</div>
+                <div class="form-row">
+                    <label for="h0">h₀ (nivel inicial)</label>
+                    <input type="number" id="h0" value="3" step="any" min="0.01">
+                    <span class="unidad">m</span>
+                </div>
+                <div class="form-row">
+                    <label for="h_parada">h_parada</label>
+                    <input type="number" id="h_parada" value="0.1" step="any" min="0">
+                    <span class="unidad">m</span>
+                </div>
+
+                <div class="section-title">Coeficientes hidráulicos</div>
+                <div class="form-row">
+                    <label for="Cd_orif">Cd_orificio</label>
+                    <input type="number" id="Cd_orif" value="0.6" step="any" min="0.01" max="1.0">
+                    <span class="unidad"></span>
+                </div>
+                <div class="form-row">
+                    <label for="Cd_weir">Cd_vertedero</label>
+                    <input type="number" id="Cd_weir" value="0.4" step="any" min="0.01" max="1.0">
+                    <span class="unidad"></span>
+                </div>
+
+                <div class="section-title">Otros</div>
+                <div class="form-row">
+                    <label for="g">g</label>
+                    <input type="number" id="g" value="9.81" step="any" min="0.01">
+                    <span class="unidad">m/s²</span>
+                </div>
+                <div class="form-row">
+                    <label for="t_max">t_max</label>
+                    <input type="number" id="t_max" value="3600" step="any" min="1">
+                    <span class="unidad">s</span>
+                </div>
+
+                <button class="btn-calcular" id="btnCalcular" onclick="calcular()">⚙ Calcular</button>
+                <div class="error-msg" id="errorMsg"></div>
+            </div>
+
+            <!-- RESULTADOS -->
+            <div class="panel-resultados">
+                <div class="panel-grafico">
+                    <div id="grafico"></div>
+                </div>
+                <div class="panel-resumen" id="panelResumen" style="display:none;">
+                    <div class="resumen-item">
+                        <div class="valor" id="r_tiempo">—</div>
+                        <div class="etiqueta">Tiempo total de vaciado</div>
+                    </div>
+                    <div class="resumen-item">
+                        <div class="valor" id="r_caudal_max">—</div>
+                        <div class="etiqueta">Caudal máximo</div>
+                    </div>
+                    <div class="resumen-item">
+                        <div class="valor" id="r_t_apertura">—</div>
+                        <div class="etiqueta">Tiempo apertura total</div>
+                    </div>
+                    <div class="resumen-item">
+                        <div class="valor" id="r_h0">—</div>
+                        <div class="etiqueta">Nivel inicial</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="overlay">
+        <div class="card">
+            <div class="spinner"></div>
+            <div class="mensaje" id="overlayMensaje">Preparando...</div>
+            <div class="submensaje" id="overlaySubmensaje"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  ESTADO GLOBAL
+        // ============================================================
+        let pyodide = null;
+        let pyodideReady = false;
+        let pyodideLoading = false;
+
+        // ============================================================
+        //  OVERLAY
+        // ============================================================
+        function mostrarOverlay(mensaje, submensaje) {
+            document.getElementById('overlayMensaje').textContent = mensaje;
+            document.getElementById('overlaySubmensaje').textContent = submensaje || '';
+            document.getElementById('overlay').classList.add('visible');
+        }
+
+        function ocultarOverlay() {
+            document.getElementById('overlay').classList.remove('visible');
+        }
+
+        // ============================================================
+        //  VALIDACIÓN DEL FORMULARIO
+        // ============================================================
+        function obtenerParametros() {
+            const ids = ['L', 'W', 'B', 'd', 't_open', 'h0', 'h_parada', 'Cd_orif', 'Cd_weir', 'g', 't_max'];
+            const params = {};
+            const errores = [];
+
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                const val = parseFloat(el.value);
+                const label = id;
+                if (isNaN(val) || val <= 0) {
+                    if (id === 'h_parada') {
+                        if (val < 0) {
+                            errores.push(`${label} debe ser >= 0`);
+                            el.classList.add('error');
+                            continue;
+                        }
+                    } else {
+                        errores.push(`${label} debe ser un número positivo`);
+                        el.classList.add('error');
+                        continue;
+                    }
+                }
+                el.classList.remove('error');
+                params[id] = val;
+            }
+
+            // n_puntos y max_step con valores por defecto
+            params['n_puntos'] = 2000;
+            params['max_step'] = 5.0;
+
+            return { params, errores };
+        }
+
+        // ============================================================
+        //  CARGAR PYODIDE
+        // ============================================================
+        async function cargarPyodide() {
+            if (pyodideReady) return true;
+            if (pyodideLoading) {
+                // Esperar a que termine otra carga
+                while (!pyodideReady) {
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                return true;
+            }
+
+            pyodideLoading = true;
+            mostrarOverlay('Cargando Pyodide...', 'Descargando el motor de Python para el navegador');
+
+            try {
+                pyodide = await loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
+                });
+
+                mostrarOverlay('Instalando paquetes...', 'numpy y scipy');
+                await pyodide.loadPackage(['numpy', 'scipy']);
+
+                // Cargar calculos.py y web_main.py al sistema de archivos virtual
+                mostrarOverlay('Cargando módulos...', 'calculos.py y web_bridge.py');
+
+                const respCalculos = await fetch('calculos.py');
+                if (!respCalculos.ok) throw new Error('No se pudo descargar calculos.py');
+                const codigoCalculos = await respCalculos.text();
+                pyodide.FS.writeFile('calculos.py', codigoCalculos);
+
+                const respWebMain = await fetch('web_bridge.py');
+                if (!respWebMain.ok) throw new Error('No se pudo descargar web_bridge.py');
+                const codigoWebMain = await respWebMain.text();
+                pyodide.FS.writeFile('web_bridge.py', codigoWebMain);
+
+                pyodideReady = true;
+                ocultarOverlay();
+                return true;
+            } catch (err) {
+                ocultarOverlay();
+                document.getElementById('errorMsg').textContent = 'Error al cargar Pyodide: ' + err.message;
+                document.getElementById('errorMsg').classList.add('visible');
+                pyodideLoading = false;
+                return false;
+            }
+        }
+
+        // ============================================================
+        //  EJECUTAR SIMULACIÓN
+        // ============================================================
+        async function calcular() {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.classList.remove('visible');
+            errorMsg.textContent = '';
+
+            const { params, errores } = obtenerParametros();
+            if (errores.length > 0) {
+                errorMsg.textContent = 'Errores: ' + errores.join('; ');
+                errorMsg.classList.add('visible');
+                return;
+            }
+
+            const btn = document.getElementById('btnCalcular');
+            btn.disabled = true;
+
+            // Cargar Pyodide si es necesario
+            mostrarOverlay('Preparando...', 'Inicializando Pyodide');
+            const ok = await cargarPyodide();
+            if (!ok) {
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                mostrarOverlay('Calculando...', 'Ejecutando simulación');
+
+                // Pasar parámetros a Python como JSON string
+                const paramsJSON = JSON.stringify(params);
+                const resultadoJSON = pyodide.runPython(`
+                    import json
+                    import web_bridge
+                    params = json.loads('${paramsJSON.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+                    result = web_bridge.ejecutar_simulacion(params)
+                    json.dumps(result)
+                `);
+                const resultado = JSON.parse(resultadoJSON);
+
+                ocultarOverlay();
+
+                if (!resultado.exito) {
+                    errorMsg.textContent = 'Error en la simulación: ' + resultado.error;
+                    errorMsg.classList.add('visible');
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Mostrar resultados
+                mostrarResultados(resultado);
+
+            } catch (err) {
+                ocultarOverlay();
+                errorMsg.textContent = 'Error inesperado: ' + err.message;
+                errorMsg.classList.add('visible');
+            }
+
+            btn.disabled = false;
+        }
+
+        // ============================================================
+        //  MOSTRAR RESULTADOS
+        // ============================================================
+        function mostrarResultados(r) {
+            // Panel resumen
+            document.getElementById('r_tiempo').textContent = r.t_parada.toFixed(1) + ' s';
+            document.getElementById('r_caudal_max').textContent = r.Q_max.toFixed(4) + ' m³/s';
+            document.getElementById('r_t_apertura').textContent = r.t_apertura_total.toFixed(1) + ' s';
+            document.getElementById('r_h0').textContent = r.parametros.h0.toFixed(2) + ' m';
+            document.getElementById('panelResumen').style.display = 'grid';
+
+            // Construir gráfico con Plotly
+            const t = r.t_res;
+            const h = r.h_res;
+            const q = r.q_res;
+            const t_open = r.t_apertura_total;
+            const t_parada = r.t_parada;
+
+            // Líneas verticales de eventos
+            const shapes = [];
+
+            // Apertura total
+            shapes.push({
+                type: 'line',
+                x0: t_open, y0: 0,
+                x1: t_open, y1: 1,
+                yref: 'paper',
+                line: { color: 'green', width: 2, dash: 'dash' }
+            });
+
+            // Parada (vaciado completo)
+            shapes.push({
+                type: 'line',
+                x0: t_parada, y0: 0,
+                x1: t_parada, y1: 1,
+                yref: 'paper',
+                line: { color: 'red', width: 2, dash: 'dash' }
+            });
+
+            // Puntos de transición
+            const transT = [];
+            const transH = [];
+            const transQ = [];
+            for (const idx of r.indices_transicion) {
+                transT.push(t[idx]);
+                transH.push(h[idx]);
+                transQ.push(q[idx]);
+            }
+
+            const traces = [];
+
+            // Nivel de agua (eje Y izquierdo)
+            traces.push({
+                x: t,
+                y: h,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Nivel de agua (h)',
+                line: { color: '#1f77b4', width: 2 },
+                yaxis: 'y',
+                hovertemplate: 't=%{x:.1f}s<br>h=%{y:.3f}m<extra></extra>'
+            });
+
+            // Caudal (eje Y derecho)
+            traces.push({
+                x: t,
+                y: q,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Caudal (Q)',
+                line: { color: '#d62728', width: 2, dash: 'dash' },
+                yaxis: 'y2',
+                hovertemplate: 't=%{x:.1f}s<br>Q=%{y:.4f}m³/s<extra></extra>'
+            });
+
+            // Puntos de transición (nivel)
+            if (transT.length > 0) {
+                traces.push({
+                    x: transT,
+                    y: transH,
+                    type: 'scatter',
+                    mode: 'markers',
+                    name: 'Transición (h)',
+                    marker: { color: '#1f77b4', size: 8, symbol: 'circle' },
+                    yaxis: 'y',
+                    hovertemplate: 't=%{x:.1f}s<br>Transición h=%{y:.3f}m<extra></extra>'
+                });
+                traces.push({
+                    x: transT,
+                    y: transQ,
+                    type: 'scatter',
+                    mode: 'markers',
+                    name: 'Transición (Q)',
+                    marker: { color: '#d62728', size: 8, symbol: 'diamond' },
+                    yaxis: 'y2',
+                    hovertemplate: 't=%{x:.1f}s<br>Transición Q=%{y:.4f}m³/s<extra></extra>'
+                });
+            }
+
+            const layout = {
+                title: {
+                    text: 'Vaciado del Desarenador',
+                    font: { size: 16 }
+                },
+                xaxis: {
+                    title: 'Tiempo (s)',
+                    gridcolor: '#eee'
+                },
+                yaxis: {
+                    title: 'Nivel de agua h (m)',
+                    titlefont: { color: '#1f77b4' },
+                    tickfont: { color: '#1f77b4' },
+                    gridcolor: '#eee',
+                    zeroline: true
+                },
+                yaxis2: {
+                    title: 'Caudal Q (m³/s)',
+                    titlefont: { color: '#d62728' },
+                    tickfont: { color: '#d62728' },
+                    overlaying: 'y',
+                    side: 'right',
+                    gridcolor: '#f5f5f5',
+                    zeroline: false
+                },
+                shapes: shapes,
+                legend: {
+                    x: 1.05,
+                    y: 1,
+                    xanchor: 'left',
+                    yanchor: 'top',
+                    bgcolor: 'rgba(255,255,255,0.85)',
+                    bordercolor: '#ccc',
+                    borderwidth: 1,
+                    font: { size: 11 }
+                },
+                margin: { l: 60, r: 80, t: 40, b: 50 },
+                hovermode: 'x unified',
+                dragmode: 'zoom',
+                paper_bgcolor: '#fff',
+                plot_bgcolor: '#fff'
+            };
+
+            // Anotaciones para las líneas verticales
+            const annotations = [
+                {
+                    x: t_open,
+                    y: 1,
+                    yref: 'paper',
+                    text: 'Apertura total',
+                    showarrow: true,
+                    arrowhead: 2,
+                    ax: 40,
+                    ay: -20,
+                    font: { color: 'green', size: 11 }
+                },
+                {
+                    x: t_parada,
+                    y: 0.95,
+                    yref: 'paper',
+                    text: 'Vaciado completo',
+                    showarrow: true,
+                    arrowhead: 2,
+                    ax: 40,
+                    ay: 20,
+                    font: { color: 'red', size: 11 }
+                }
+            ];
+            layout.annotations = annotations;
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            };
+
+            Plotly.newPlot('grafico', traces, layout, config);
+        }
+
+        // ============================================================
+        //  INICIALIZACIÓN
+        // ============================================================
+        // Mostrar gráfico vacío al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            Plotly.newPlot('grafico', [], {
+                xaxis: { title: 'Tiempo (s)' },
+                yaxis: { title: 'Nivel h (m)' },
+                yaxis2: { title: 'Caudal Q (m³/s)', overlaying: 'y', side: 'right' },
+                title: { text: 'Presione "Calcular" para ejecutar la simulación' },
+                paper_bgcolor: '#fff',
+                plot_bgcolor: '#fff'
+            }, { responsive: true });
+        });
+
+        // Permitir Enter para calcular
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                calcular();
+            }
+        });
+    </script>
+</body>
+</html>

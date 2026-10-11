@@ -1,0 +1,19 @@
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ── Frontends de escritorio retirados (no se publican) ────────────────
+.old/
+
+# ── Artefactos internos de autoría (no se publican) ───────────────────
+__marimo__/
+*/pendientes.md
+*/observaciones.md
+*/bernoulli_03_mar.py
+
+# ── Sistema ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
