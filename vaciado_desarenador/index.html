@@ -4,232 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simulación de Vaciado de Desarenador</title>
+    <link rel="stylesheet" href="../theme.css">
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #f0f2f5;
-            color: #333;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            text-align: center;
-            color: #1a1a2e;
-            margin-bottom: 24px;
-            font-size: 1.6rem;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
         .main-grid {
             display: grid;
             grid-template-columns: 360px 1fr;
-            gap: 20px;
+            gap: 16px;
         }
-
-        /* ---------- FORMULARIO ---------- */
-        .panel-form {
-            background: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .panel-form h2 {
-            font-size: 1.1rem;
-            margin-bottom: 16px;
-            color: #1a1a2e;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 8px;
-        }
-        .form-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            gap: 6px;
-        }
-        .form-row label {
-            flex: 0 0 120px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        .form-row input {
-            flex: 1;
-            padding: 6px 8px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            min-width: 0;
-            transition: border-color 0.2s;
-        }
-        .form-row input:focus {
-            outline: none;
-            border-color: #4a6cf7;
-            box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
-        }
-        .form-row input.error {
-            border-color: #e74c3c;
-        }
+        .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 6px; }
+        .form-row label { flex: 0 0 120px; margin-bottom: 0; }
+        .form-row input { flex: 1; min-width: 0; }
         .form-row .unidad {
             flex: 0 0 44px;
             font-size: 0.75rem;
-            color: #888;
+            color: var(--gray);
             text-align: right;
         }
-        .form-row .nombre-param {
-            flex: 0 0 120px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        .section-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #4a6cf7;
-            margin: 16px 0 8px;
-        }
-        .btn-calcular {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #4a6cf7, #3b5de7);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-            margin-top: 8px;
-        }
-        .btn-calcular:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(74,108,247,0.35);
-        }
-        .btn-calcular:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .error-msg {
-            color: #e74c3c;
-            font-size: 0.8rem;
-            margin-top: 8px;
-            display: none;
-        }
-        .error-msg.visible {
-            display: block;
-        }
-
-        /* ---------- RESULTADOS ---------- */
-        .panel-resultados {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .panel-grafico {
-            background: #fff;
-            border-radius: 12px;
-            padding: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        #grafico {
-            width: 100%;
-            height: 480px;
-        }
-
+        .panel-resultados { display: flex; flex-direction: column; gap: 16px; }
         .panel-resumen {
-            background: #fff;
-            border-radius: 12px;
-            padding: 16px 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 12px;
         }
-        .resumen-item {
-            text-align: center;
-            padding: 10px;
-            background: #f8f9fc;
-            border-radius: 8px;
-        }
-        .resumen-item .valor {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #1a1a2e;
-        }
-        .resumen-item .etiqueta {
-            font-size: 0.75rem;
-            color: #888;
-            margin-top: 2px;
-        }
+        #grafico { width: 100%; height: 480px; }
 
-        /* ---------- OVERLAY DE CARGA ---------- */
-        #overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        #overlay.visible {
-            display: flex;
-        }
-        #overlay .card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 40px 48px;
-            text-align: center;
-            max-width: 400px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-        }
-        .spinner {
-            width: 44px;
-            height: 44px;
-            border: 5px solid #e0e0e0;
-            border-top-color: #4a6cf7;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #overlay .mensaje {
-            font-size: 1rem;
-            font-weight: 500;
-            color: #333;
-        }
-        #overlay .submensaje {
-            font-size: 0.8rem;
-            color: #888;
-            margin-top: 6px;
-        }
-
-        /* ---------- RESPONSIVE ---------- */
         @media (max-width: 800px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-            #grafico {
-                height: 360px;
-            }
-            h1 { font-size: 1.3rem; }
-            .panel-resumen {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .main-grid { grid-template-columns: 1fr; }
+            #grafico { height: 360px; }
+            .panel-resumen { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 480px) {
             body { padding: 10px; }
             #grafico { height: 280px; }
             .panel-resumen { grid-template-columns: 1fr 1fr; gap: 8px; }
-            .resumen-item .valor { font-size: 1.1rem; }
-            #overlay .card { padding: 28px 20px; margin: 0 16px; }
             .form-row { flex-wrap: wrap; }
             .form-row label { flex: 0 0 100%; margin-bottom: 2px; }
             .form-row .unidad { flex: 0 0 auto; }
@@ -238,7 +49,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏭 Vaciado de Desarenador</h1>
+        <div class="topbar">
+            <a class="back" href="../">← Hidro</a>
+            <h1>Vaciado de Desarenador</h1>
+        </div>
         <div class="main-grid">
             <!-- FORMULARIO -->
             <div class="panel-form">
@@ -543,7 +357,7 @@
                 x0: t_open, y0: 0,
                 x1: t_open, y1: 1,
                 yref: 'paper',
-                line: { color: 'green', width: 2, dash: 'dash' }
+                line: { color: '#8ec07c', width: 2, dash: 'dash' }
             });
 
             // Parada (vaciado completo)
@@ -552,7 +366,7 @@
                 x0: t_parada, y0: 0,
                 x1: t_parada, y1: 1,
                 yref: 'paper',
-                line: { color: 'red', width: 2, dash: 'dash' }
+                line: { color: '#fb4934', width: 2, dash: 'dash' }
             });
 
             // Puntos de transición
@@ -574,7 +388,7 @@
                 type: 'scatter',
                 mode: 'lines',
                 name: 'Nivel de agua (h)',
-                line: { color: '#1f77b4', width: 2 },
+                line: { color: '#83a598', width: 2 },
                 yaxis: 'y',
                 hovertemplate: 't=%{x:.1f}s<br>h=%{y:.3f}m<extra></extra>'
             });
@@ -586,7 +400,7 @@
                 type: 'scatter',
                 mode: 'lines',
                 name: 'Caudal (Q)',
-                line: { color: '#d62728', width: 2, dash: 'dash' },
+                line: { color: '#fe8019', width: 2, dash: 'dash' },
                 yaxis: 'y2',
                 hovertemplate: 't=%{x:.1f}s<br>Q=%{y:.4f}m³/s<extra></extra>'
             });
@@ -599,7 +413,7 @@
                     type: 'scatter',
                     mode: 'markers',
                     name: 'Transición (h)',
-                    marker: { color: '#1f77b4', size: 8, symbol: 'circle' },
+                    marker: { color: '#83a598', size: 8, symbol: 'circle' },
                     yaxis: 'y',
                     hovertemplate: 't=%{x:.1f}s<br>Transición h=%{y:.3f}m<extra></extra>'
                 });
@@ -609,35 +423,38 @@
                     type: 'scatter',
                     mode: 'markers',
                     name: 'Transición (Q)',
-                    marker: { color: '#d62728', size: 8, symbol: 'diamond' },
+                    marker: { color: '#fe8019', size: 8, symbol: 'diamond' },
                     yaxis: 'y2',
                     hovertemplate: 't=%{x:.1f}s<br>Transición Q=%{y:.4f}m³/s<extra></extra>'
                 });
             }
 
             const layout = {
+                font: { color: '#ebdbb2', family: "Inter, 'Segoe UI', sans-serif" },
                 title: {
                     text: 'Vaciado del Desarenador',
-                    font: { size: 16 }
+                    font: { size: 16, color: '#fabd2f' }
                 },
                 xaxis: {
                     title: 'Tiempo (s)',
-                    gridcolor: '#eee'
+                    gridcolor: '#3c3836',
+                    zerolinecolor: '#504945'
                 },
                 yaxis: {
                     title: 'Nivel de agua h (m)',
-                    titlefont: { color: '#1f77b4' },
-                    tickfont: { color: '#1f77b4' },
-                    gridcolor: '#eee',
-                    zeroline: true
+                    titlefont: { color: '#83a598' },
+                    tickfont: { color: '#83a598' },
+                    gridcolor: '#3c3836',
+                    zeroline: true,
+                    zerolinecolor: '#504945'
                 },
                 yaxis2: {
                     title: 'Caudal Q (m³/s)',
-                    titlefont: { color: '#d62728' },
-                    tickfont: { color: '#d62728' },
+                    titlefont: { color: '#fe8019' },
+                    tickfont: { color: '#fe8019' },
                     overlaying: 'y',
                     side: 'right',
-                    gridcolor: '#f5f5f5',
+                    gridcolor: '#3c3836',
                     zeroline: false
                 },
                 shapes: shapes,
@@ -646,16 +463,16 @@
                     y: 1,
                     xanchor: 'left',
                     yanchor: 'top',
-                    bgcolor: 'rgba(255,255,255,0.85)',
-                    bordercolor: '#ccc',
+                    bgcolor: 'rgba(40,40,40,0.9)',
+                    bordercolor: '#504945',
                     borderwidth: 1,
-                    font: { size: 11 }
+                    font: { size: 11, color: '#ebdbb2' }
                 },
                 margin: { l: 60, r: 80, t: 40, b: 50 },
                 hovermode: 'x unified',
                 dragmode: 'zoom',
-                paper_bgcolor: '#fff',
-                plot_bgcolor: '#fff'
+                paper_bgcolor: '#282828',
+                plot_bgcolor: '#282828'
             };
 
             // Anotaciones para las líneas verticales
@@ -669,7 +486,7 @@
                     arrowhead: 2,
                     ax: 40,
                     ay: -20,
-                    font: { color: 'green', size: 11 }
+                    font: { color: '#8ec07c', size: 11 }
                 },
                 {
                     x: t_parada,
@@ -680,7 +497,7 @@
                     arrowhead: 2,
                     ax: 40,
                     ay: 20,
-                    font: { color: 'red', size: 11 }
+                    font: { color: '#fb4934', size: 11 }
                 }
             ];
             layout.annotations = annotations;
@@ -701,12 +518,13 @@
         // Mostrar gráfico vacío al cargar
         document.addEventListener('DOMContentLoaded', function() {
             Plotly.newPlot('grafico', [], {
-                xaxis: { title: 'Tiempo (s)' },
-                yaxis: { title: 'Nivel h (m)' },
-                yaxis2: { title: 'Caudal Q (m³/s)', overlaying: 'y', side: 'right' },
-                title: { text: 'Presione "Calcular" para ejecutar la simulación' },
-                paper_bgcolor: '#fff',
-                plot_bgcolor: '#fff'
+                font: { color: '#ebdbb2', family: "Inter, 'Segoe UI', sans-serif" },
+                xaxis: { title: 'Tiempo (s)', gridcolor: '#3c3836' },
+                yaxis: { title: 'Nivel h (m)', gridcolor: '#3c3836' },
+                yaxis2: { title: 'Caudal Q (m³/s)', overlaying: 'y', side: 'right', gridcolor: '#3c3836' },
+                title: { text: 'Presione "Calcular" para ejecutar la simulación', font: { color: '#fabd2f' } },
+                paper_bgcolor: '#282828',
+                plot_bgcolor: '#282828'
             }, { responsive: true });
         });
 

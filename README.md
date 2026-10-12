@@ -21,14 +21,15 @@ Calculadoras de ingeniería hidráulica que ejecutan **Python en el navegador** 
 
 ```
 hidro/
-├── index.html                    # Landing con enlaces a las 4 herramientas
+├── index.html                    # Índice con enlaces a las 4 herramientas
+├── theme.css                     # Tema visual compartido (Gruvbox dark)
 ├── diseno_desarenador/           # Cálculo + UI (Pyodide)
 ├── vaciado_desarenador/          # Cálculo + UI (Pyodide + Plotly)
 ├── perdida_de_carga_tuberias/    # Cálculo + UI (Pyodide)
 └── linea_de_energia/             # Cálculo + UI (Pyodide)
 ```
 
-Cada herramienta es **autocontenida**: su `index.html`, su módulo de cálculo (`.py`), su puente `web_bridge.py` y su `marco_teorico.md`. No hay código compartido entre herramientas — cada una conserva sus propias constantes y fórmulas.
+Cada herramienta es **autocontenida**: su `index.html`, su módulo de cálculo (`.py`), su puente `web_bridge.py` y su `marco_teorico.md`. No comparten código de cálculo — cada una conserva sus propias constantes y fórmulas. La única pieza común es **`theme.css`**, que define la identidad visual (paleta Gruvbox dark, tipografía y componentes) y que cada herramienta importa con `<link rel="stylesheet" href="../theme.css">`; su `<style>` propio conserva únicamente el layout.
 
 ---
 
