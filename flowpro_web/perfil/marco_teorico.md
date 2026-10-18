@@ -124,4 +124,4 @@ La última fila depende del criterio de parada (ahí `dx/dy → ∞`), como en e
 2. Jeppson, R. W. *Open Channel Flow Utilizing Computers*. 1994.
 3. ProSoft Apps. *Flow Pro 2.1 — Water Surface Profile* (nota de ayuda del programa).
 
-> Inventario de cálculos del programa original: `capturas flowpro2/flowpro-2.1-calculos.md` (raíz del monorepo).
+> Inventario de cálculos del programa original: `flowpro2-fuente/flowpro-2.1-calculos.md` (raíz del monorepo).

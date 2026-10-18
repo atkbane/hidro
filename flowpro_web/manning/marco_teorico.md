@@ -153,4 +153,4 @@ Se verificó además la **inversión**: partiendo de `y = 1.2136` se recuperan `
 2. Jeppson, R. W. *Open Channel Flow Utilizing Computers*. 1994 (base teórica citada por Flow Pro).
 3. ProSoft Apps. *Flow Pro 2.1 — Depth, Flowrate, Slope, and Roughness* (nota de ayuda del programa).
 
-> Inventario de cálculos del programa original: `capturas flowpro2/flowpro-2.1-calculos.md` (raíz del monorepo).
+> Inventario de cálculos del programa original: `flowpro2-fuente/flowpro-2.1-calculos.md` (raíz del monorepo).

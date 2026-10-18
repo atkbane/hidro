@@ -49,7 +49,7 @@ su `marco_teorico.md` y su `README.md`. La única pieza común es `../theme.css`
 
 Cada herramienta documenta sus fórmulas en su `marco_teorico.md`. El inventario del programa
 original y la bibliografía utilizada están en el monorepo de autoría
-(`capturas flowpro2/flowpro-2.1-calculos.md` y `RESPUESTAS_flowpro_biblioteca.md`).
+(`flowpro2-fuente/flowpro-2.1-calculos.md` y `flowpro2-fuente/RESPUESTAS_flowpro_biblioteca.md`).
 
 ---
 
