@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Pro — herramientas de canal abierto</title>
+<meta name="description" content="Reimplementación web de las calculadoras de canal abierto de Flow Pro 2.1. Python en el navegador (Pyodide).">
+<meta name="theme-color" content="#282828">
+<link rel="stylesheet" href="../theme.css">
+<style>
+  .wrap { width: 100%; max-width: 680px; margin: 0 auto; }
+  .topbar h1 { text-align: center; }
+  .lead { text-align: center; color: var(--fg4); margin: 0.4rem 0 1.6rem; font-size: 0.9rem; }
+  ul { list-style: none; border-top: 1px solid var(--bg1); }
+  li a { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+         padding: 1rem 0.5rem; border-bottom: 1px solid var(--bg1); text-decoration: none;
+         color: inherit; transition: background 0.15s, padding 0.15s; }
+  li a:hover, li a:focus-visible { background: var(--bg1); padding-left: 1rem; outline: none; }
+  li a:focus-visible { box-shadow: inset 3px 0 0 var(--aqua); }
+  .name { font-weight: 600; color: var(--aqua); transition: color 0.15s; }
+  li a:hover .name, li a:focus-visible .name { color: var(--yellow); }
+  .desc { color: var(--fg4); font-size: 0.83rem; flex: 1; }
+  .arrow { color: var(--orange); font-weight: 700; }
+  li.pendiente a { cursor: not-allowed; opacity: 0.5; }
+  li.pendiente .arrow { color: var(--bg3); }
+  .nota { color: var(--gray); font-size: 0.78rem; text-align: center; margin-top: 1.6rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../">← Hidro</a>
+    <h1>Flow Pro — canal abierto</h1>
+  </div>
+  <p class="lead">Reimplementación web (clean-room) de las calculadoras de <strong>Flow Pro 2.1</strong>, a partir de la ecuación de Manning y la hidráulica estándar de canales.</p>
+
+  <ul>
+    <li><a href="./manning/"><span class="name">Tirante normal y Manning</span><span class="desc">Tirante, caudal, pendiente o rugosidad</span><span class="arrow">→</span></a></li>
+    <li><a href="./critico/"><span class="name">Tirante y pendiente crítica</span><span class="desc">Régimen crítico (Fr = 1) y pendiente crítica</span><span class="arrow">→</span></a></li>
+    <li><a href="./perfil/"><span class="name">Perfil de superficie libre</span><span class="desc">Flujo gradualmente variado · paso directo + Simpson</span><span class="arrow">→</span></a></li>
+    <li><a href="./orificios/"><span class="name">Orificios</span><span class="desc">Descarga por orificio circular o cuadrado</span><span class="arrow">→</span></a></li>
+    <li><a href="./vertederos/"><span class="name">Vertederos</span><span class="desc">Rectangular, triangular, Cipolletti · libre y sumergido</span><span class="arrow">→</span></a></li>
+    <li><a href="./compuertas/"><span class="name">Compuertas de fondo</span><span class="desc">Vertical, radial o tambor · caudal y velocidad</span><span class="arrow">→</span></a></li>
+  </ul>
+
+  <p class="nota">
+    No contiene código del programa original. Métodos tomados de la documentación del propio
+    Flow Pro y de la bibliografía estándar de hidráulica de canales.<br>
+    Pendiente: secciones <strong>U</strong> y <strong>circular alargada</strong> (geometría sin publicar).
+  </p>
+</div>
+</body>
+</html>

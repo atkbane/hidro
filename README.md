@@ -14,6 +14,7 @@ Calculadoras de ingeniería hidráulica que ejecutan **Python en el navegador** 
 | **Pérdida de Carga en Tuberías** | Fricción y pérdidas localizadas en tuberías a presión. Darcy‑Weisbach, Hazen‑Williams, Manning. | [Abrir](https://hidro.rfntc.com/perdida_de_carga_tuberias/) |
 | **Diseño de Desarenador** | Dimensionamiento de naves de sedimentación. Camp, Shields, Zanke. Bisel dinámico. | [Abrir](https://hidro.rfntc.com/diseno_desarenador/) |
 | **Línea de Energía** | Bernoulli encadenado: desarenador → bocatoma. Transiciones, rejillas (Kirschmer), tranquilizadores. | [Abrir](https://hidro.rfntc.com/linea_de_energia/) |
+| **Flow Pro — canal abierto** | Réplica de Flow Pro 2.1: Manning, tirante crítico, perfil de superficie, orificios, vertederos y compuertas. | [Abrir](https://hidro.rfntc.com/flowpro_web/) |
 
 ---
 
@@ -21,12 +22,13 @@ Calculadoras de ingeniería hidráulica que ejecutan **Python en el navegador** 
 
 ```
 hidro/
-├── index.html                    # Índice con enlaces a las 4 herramientas
+├── index.html                    # Índice con enlaces a las 5 herramientas
 ├── theme.css                     # Tema visual compartido (Gruvbox dark)
 ├── diseno_desarenador/           # Cálculo + UI (Pyodide)
 ├── vaciado_desarenador/          # Cálculo + UI (Pyodide + Plotly)
 ├── perdida_de_carga_tuberias/    # Cálculo + UI (Pyodide)
-└── linea_de_energia/             # Cálculo + UI (Pyodide)
+├── linea_de_energia/             # Cálculo + UI (Pyodide)
+└── flowpro_web/                  # Réplica de Flow Pro (suite: manning, critico, perfil, orificios, vertederos, compuertas)
 ```
 
 Cada herramienta es **autocontenida**: su `index.html`, su módulo de cálculo (`.py`), su puente `web_bridge.py` y su `marco_teorico.md`. No comparten código de cálculo — cada una conserva sus propias constantes y fórmulas. La única pieza común es **`theme.css`**, que define la identidad visual (paleta Gruvbox dark, tipografía y componentes) y que cada herramienta importa con `<link rel="stylesheet" href="../theme.css">`; su `<style>` propio conserva únicamente el layout.

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tirante normal y Manning</title>
+    <meta name="description" content="Tirante normal, caudal, pendiente y rugosidad en canales abiertos (Manning). Réplica web de la herramienta de Flow Pro 2.1.">
+    <link rel="stylesheet" href="../../theme.css">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <style>
+        .container { max-width: 1180px; margin: 0 auto; }
+
+        .subtitulo {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin: -6px 0 12px;
+        }
+
+        /* ── Menú de herramientas de la suite ────────────────────────── */
+        .toolnav { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: -4px 0 12px; }
+        .toolnav a {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--fg3);
+            background: var(--bg0-soft);
+            border: 1px solid var(--bg1);
+            border-radius: 6px;
+        }
+        .toolnav a:hover { background: var(--bg1); color: var(--fg0); }
+        .toolnav a.active { background: var(--orange); border-color: var(--orange); color: var(--bg0-hard); }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.05fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        /* ── Pestañas de incógnita y selector de sección ─────────────── */
+        .tabs, .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tab, .shape {
+            padding: 7px 12px;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--fg2);
+            background: var(--bg0-hard);
+            border: 1px solid var(--bg1);
+            border-radius: 6px;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .tab:hover, .shape:not(:disabled):hover { background: var(--bg1); color: var(--fg0); }
+        .tab.active, .shape.active {
+            background: var(--orange);
+            border-color: var(--orange);
+            color: var(--bg0-hard);
+        }
+        .shape:disabled { opacity: 0.38; cursor: not-allowed; }
+
+        /* ── Filas de entrada / salida ───────────────────────────────── */
+        .io-row { margin-bottom: 10px; }
+        .io-row label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--fg3);
+            margin-bottom: 3px;
+        }
+        .io-wrap { display: flex; align-items: baseline; gap: 8px; }
+        .io-wrap input { flex: 1; }
+        .unit { font-size: 0.72rem; color: var(--gray); white-space: nowrap; min-width: 2.5em; }
+
+        .out-value {
+            flex: 1;
+            padding: 7px 10px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            text-align: right;
+            color: var(--fg0);
+            background: var(--bg0-hard);
+            border: 1px solid var(--bg1);
+            border-radius: 6px;
+            font-variant-numeric: tabular-nums;
+            min-height: 1.9em;
+        }
+        .out-value.dim { color: var(--bg4); font-weight: 400; }
+        .out-value.highlight { color: var(--yellow); border-color: var(--bg3); }
+
+        .regimen-line {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--bg1);
+            font-size: 0.8rem;
+            color: var(--fg3);
+            min-height: 1.4em;
+        }
+        .regimen-line .val { font-weight: 600; color: var(--fg0); font-variant-numeric: tabular-nums; }
+        .regimen-line .sub { color: var(--aqua); font-weight: 600; }
+        .regimen-line .sup { color: var(--red); font-weight: 600; }
+        .regimen-line .crit { color: var(--yellow); font-weight: 600; }
+
+        .hint { font-size: 0.7rem; color: var(--gray); font-style: italic; margin-top: 6px; }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <a class="back" href="../../">← Hidro</a>
+            <h1>Tirante normal y Manning</h1>
+        </div>
+        <nav class="toolnav">
+            <a href="./" class="active">Tirante normal</a>
+            <a href="../critico/">Tirante crítico</a>
+            <a href="../perfil/">Perfil de superficie</a>
+            <a href="../orificios/">Orificios</a>
+            <a href="../vertederos/">Vertederos</a>
+            <a href="../compuertas/">Compuertas</a>
+        </nav>
+        <p class="subtitulo">Réplica de la herramienta «Depth, Flowrate, Slope, and Roughness» de Flow Pro 2.1</p>
+
+        <div class="status-bar" id="statusBar">Cargando Pyodide…</div>
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="main-grid">
+            <!-- ═══════════════ CONTROLES ═══════════════ -->
+            <div class="panel">
+                <h2>Cálculo</h2>
+
+                <div class="form-row">
+                    <label for="sistema">Sistema de unidades</label>
+                    <select id="sistema">
+                        <option value="SI">SI — m, m³/s</option>
+                        <option value="English">Inglés — ft, ft³/s</option>
+                    </select>
+                    <span class="caption">Manning usa k = 1.000 (SI) y k = 1.486 (inglés)</span>
+                </div>
+
+                <div class="form-row">
+                    <label>Incógnita a calcular</label>
+                    <div class="tabs" id="tabs"></div>
+                </div>
+
+                <div class="form-row">
+                    <label>Tipo de sección</label>
+                    <div class="shapes" id="shapes"></div>
+                    <div class="hint" id="shapeHint"></div>
+                </div>
+            </div>
+
+            <!-- ═══════════════ DATOS ═══════════════ -->
+            <div class="panel">
+                <h2>Datos</h2>
+                <div id="campos"></div>
+            </div>
+
+            <!-- ═══════════════ RESULTADOS ═══════════════ -->
+            <div class="panel">
+                <h2>Resultados</h2>
+                <div id="salidas"></div>
+                <div class="regimen-line" id="regimenLine"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ MEMORIA DE CÁLCULO ═══════════════ -->
+        <div class="summary-panel" id="summaryPanel">
+            <div class="summary-toggle" id="summaryToggle">
+                <span class="chevron" id="summaryChevron">▶</span>
+                <span class="toggle-label">Memoria de cálculo</span>
+                <button class="btn-copy" id="btnCopy" onclick="event.stopPropagation(); copiarReporte()">📋 Copiar</button>
+            </div>
+            <div class="summary-body" id="summaryBody">
+                <div class="placeholder" id="summaryPlaceholder">La memoria de cálculo se actualiza automáticamente al modificar los datos.</div>
+                <pre id="resultText" style="display:none;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="overlay">
+        <div class="card">
+            <div class="spinner"></div>
+            <div class="mensaje" id="overlayMensaje">Preparando...</div>
+            <div class="submensaje" id="overlaySubmensaje"></div>
+        </div>
+    </div>
+
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        //  CATÁLOGOS
+        // ════════════════════════════════════════════════════════════════
+        const SISTEMAS = {
+            SI:      { L: "m",  A: "m²", Q: "m³/s",  V: "m/s"  },
+            English: { L: "ft", A: "ft²", Q: "ft³/s", V: "ft/s" },
+        };
+
+        const INCOGNITAS = [
+            { id: "profundidad", tab: "Tirante"    },
+            { id: "caudal",      tab: "Caudal"     },
+            { id: "pendiente",   tab: "Pendiente"  },
+            { id: "rugosidad",   tab: "Rugosidad"  },
+        ];
+
+        const FORMAS = [
+            { id: "Trapezoidal",        nombre: "Trapezoidal",   ok: true  },
+            { id: "Circular",           nombre: "Circular",      ok: true  },
+            { id: "Ushaped",            nombre: "U",             ok: false },
+            { id: "Elongated circular", nombre: "Circular alargada", ok: false },
+        ];
+
+        // ════════════════════════════════════════════════════════════════
+        //  ESTADO
+        // ════════════════════════════════════════════════════════════════
+        const estado = {
+            sistema: "SI",
+            incognita: "profundidad",
+            forma: "Trapezoidal",
+            valores: { Q: "15", y: "1.2", S: "0.02", n: "0.05", b: "5", D: "1.5", m: "0" },
+        };
+
+        let pyodide = null;
+        let pyodideReady = false;
+        let pyodideLoading = false;
+        let recalcTimer = null;
+
+        // ════════════════════════════════════════════════════════════════
+        //  ETIQUETAS DE VARIABLES
+        // ════════════════════════════════════════════════════════════════
+        function labelVar(key, U) {
+            switch (key) {
+                case "Q": return { label: "Caudal Q", unit: U.Q };
+                case "y": return { label: "Tirante y", unit: U.L };
+                case "S": return { label: "Pendiente de fondo S", unit: "m/m" };
+                case "n": return { label: "Rugosidad de Manning N", unit: "—" };
+                case "b": return { label: "Ancho de solera b", unit: U.L };
+                case "D": return { label: "Diámetro D", unit: U.L };
+                case "m": return { label: "Talud H:V", unit: "—" };
+                default:  return { label: key, unit: "" };
+            }
+        }
+
+        // Orden de entradas por pestaña (fiel a la disposición de Flow Pro)
+        function ordenEntradas(incognita, forma) {
+            const geom = forma === "Circular" ? "D" : "b";
+            const mapa = {
+                profundidad: ["Q", geom, "n", "S"],
+                caudal:      ["y", geom, "n", "S"],
+                pendiente:   ["Q", geom, "n", "y"],
+                rugosidad:   ["Q", geom, "y", "S"],
+            };
+            const arr = mapa[incognita].slice();
+            if (forma === "Trapezoidal") arr.push("m");
+            return arr;
+        }
+
+        // Salidas por pestaña: incógnita + V, A, P, R
+        function ordenSalidas(incognita, U) {
+            const inc = {
+                profundidad: { k: "y", label: "Tirante y", unit: U.L },
+                caudal:      { k: "Q", label: "Caudal Q", unit: U.Q },
+                pendiente:   { k: "S", label: "Pendiente de fondo S", unit: "m/m" },
+                rugosidad:   { k: "n", label: "Rugosidad N", unit: "—" },
+            }[incognita];
+            return [
+                { ...inc, highlight: true },
+                { k: "V", label: "Velocidad V",         unit: U.V },
+                { k: "A", label: "Área A",              unit: U.A },
+                { k: "P", label: "Perímetro mojado P",  unit: U.L },
+                { k: "R", label: "Radio hidráulico R",  unit: U.L },
+            ];
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  RENDER
+        // ════════════════════════════════════════════════════════════════
+        function render() {
+            const U = SISTEMAS[estado.sistema];
+
+            // Pestañas
+            document.getElementById("tabs").innerHTML = INCOGNITAS.map(i =>
+                `<button class="tab ${i.id === estado.incognita ? "active" : ""}" data-id="${i.id}">${i.tab}</button>`
+            ).join("");
+            document.querySelectorAll("#tabs .tab").forEach(b =>
+                b.addEventListener("click", () => { estado.incognita = b.dataset.id; render(); })
+            );
+
+            // Secciones
+            document.getElementById("shapes").innerHTML = FORMAS.map(f =>
+                `<button class="shape ${f.id === estado.forma ? "active" : ""}" data-id="${f.id}" ` +
+                `${f.ok ? "" : "disabled"} title="${f.ok ? f.nombre : "Geometría pendiente de verificación"}">${f.nombre}</button>`
+            ).join("");
+            document.querySelectorAll("#shapes .shape").forEach(b =>
+                b.addEventListener("click", () => { estado.forma = b.dataset.id; render(); })
+            );
+            document.getElementById("shapeHint").textContent =
+                "Las secciones U y circular alargada se añadirán al verificar su geometría.";
+
+            // Entradas
+            const campos = ordenEntradas(estado.incognita, estado.forma);
+            document.getElementById("campos").innerHTML = campos.map(key => {
+                const L = labelVar(key, U);
+                return `<div class="io-row">
+                    <label>${L.label}</label>
+                    <div class="io-wrap">
+                        <input type="number" step="any" data-key="${key}" value="${estado.valores[key] ?? ""}">
+                        <span class="unit">${L.unit}</span>
+                    </div>
+                </div>`;
+            }).join("");
+            document.querySelectorAll("#campos input").forEach(inp =>
+                inp.addEventListener("input", () => {
+                    estado.valores[inp.dataset.key] = inp.value;
+                    scheduleRecalc();
+                })
+            );
+
+            // Salidas
+            const salidas = ordenSalidas(estado.incognita, U);
+            document.getElementById("salidas").innerHTML = salidas.map(s =>
+                `<div class="io-row">
+                    <label>${s.label}</label>
+                    <div class="io-wrap">
+                        <div class="out-value dim ${s.highlight ? "highlight" : ""}" data-k="${s.k}">—</div>
+                        <span class="unit">${s.unit}</span>
+                    </div>
+                </div>`
+            ).join("");
+
+            document.getElementById("regimenLine").textContent = "";
+            scheduleRecalc();
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  ESTADO DE CARGA / ERRORES
+        // ════════════════════════════════════════════════════════════════
+        function mostrarOverlay(msg, sub) {
+            document.getElementById("overlayMensaje").textContent = msg;
+            document.getElementById("overlaySubmensaje").textContent = sub || "";
+            document.getElementById("overlay").classList.add("visible");
+        }
+        function ocultarOverlay() { document.getElementById("overlay").classList.remove("visible"); }
+        function setStatus(t, c) {
+            const el = document.getElementById("statusBar");
+            el.textContent = t;
+            el.className = "status-bar" + (c ? " " + c : "");
+        }
+        function showError(m) {
+            const el = document.getElementById("errorMsg");
+            el.textContent = m; el.classList.add("visible");
+        }
+        function hideError() {
+            const el = document.getElementById("errorMsg");
+            el.textContent = ""; el.classList.remove("visible");
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  RECÁLCULO EN VIVO
+        // ════════════════════════════════════════════════════════════════
+        function scheduleRecalc() {
+            if (recalcTimer) clearTimeout(recalcTimer);
+            recalcTimer = setTimeout(recalcular, 80);
+        }
+
+        function num(v) { const x = parseFloat(v); return isNaN(x) ? null : x; }
+
+        async function recalcular() {
+            if (!pyodideReady) {
+                const ok = await cargarPyodide();
+                if (!ok) return;
+            }
+
+            const v = estado.valores;
+            const params = {
+                sistema: estado.sistema,
+                incognita: estado.incognita,
+                forma: estado.forma,
+                Q: num(v.Q), y: num(v.y), S: num(v.S), n: num(v.n),
+                b: num(v.b), D: num(v.D), m: num(v.m),
+            };
+
+            try {
+                const paramsJSON = JSON.stringify(params);
+                const resultadoJSON = pyodide.runPython(`
+import json
+import web_bridge
+params = json.loads('${paramsJSON.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')
+result = web_bridge.ejecutar_simulacion(params)
+json.dumps(result)
+                `);
+                const res = JSON.parse(resultadoJSON);
+
+                if (!res.exito) { limpiarResultadosUI(); return; }
+                aplicarResultados(res);
+                hideError();
+            } catch (err) {
+                console.error("recalcular:", err);
+            }
+        }
+
+        function fmt(k, val) {
+            if (val === null || val === undefined) return "—";
+            if (k === "S") return val.toFixed(6);
+            if (k === "n") return val.toFixed(5);
+            return val.toFixed(4);
+        }
+
+        function aplicarResultados(res) {
+            document.querySelectorAll("#salidas .out-value").forEach(el => {
+                const k = el.dataset.k;
+                el.textContent = fmt(k, res[k]);
+                el.classList.remove("dim");
+            });
+
+            const cls = res.regimen === "supercrítico" ? "sup"
+                      : res.regimen === "crítico" ? "crit" : "sub";
+            document.getElementById("regimenLine").innerHTML =
+                `Número de Froude: <span class="val">${res.Fr.toFixed(4)}</span> ` +
+                `· régimen <span class="${cls}">${res.regimen}</span>`;
+
+            const pre = document.getElementById("resultText");
+            const ph = document.getElementById("summaryPlaceholder");
+            if (res.resultado_texto) {
+                pre.textContent = res.resultado_texto;
+                pre.style.display = "block";
+                if (ph) ph.style.display = "none";
+            }
+
+            setStatus(`Actualizado · ${estado.forma} · ${estado.incognita}`, "ready");
+        }
+
+        function limpiarResultadosUI() {
+            document.querySelectorAll("#salidas .out-value").forEach(el => {
+                el.textContent = "—"; el.classList.add("dim");
+            });
+            document.getElementById("regimenLine").textContent = "";
+            setStatus("Ingrese datos válidos para calcular.", "");
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  MEMORIA DE CÁLCULO
+        // ════════════════════════════════════════════════════════════════
+        document.getElementById("summaryToggle").addEventListener("click", () => {
+            document.getElementById("summaryBody").classList.toggle("open");
+            document.getElementById("summaryChevron").classList.toggle("open");
+        });
+
+        function copiarReporte() {
+            const text = document.getElementById("resultText").textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById("btnCopy");
+                const orig = btn.textContent;
+                btn.textContent = "✓ Copiado";
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            }, () => showError("No se pudo copiar al portapapeles."));
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  CARGAR PYODIDE
+        // ════════════════════════════════════════════════════════════════
+        async function cargarPyodide() {
+            if (pyodideReady) return true;
+            if (pyodideLoading) {
+                while (!pyodideReady) await new Promise(r => setTimeout(r, 200));
+                return true;
+            }
+            pyodideLoading = true;
+            mostrarOverlay("Cargando Pyodide...", "Descargando el motor de Python para el navegador");
+            try {
+                pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+
+                mostrarOverlay("Cargando módulos...", "calculos.py y web_bridge.py");
+                const rc = await fetch("calculos.py");
+                if (!rc.ok) throw new Error("No se pudo descargar calculos.py");
+                pyodide.FS.writeFile("calculos.py", await rc.text());
+
+                const rb = await fetch("web_bridge.py");
+                if (!rb.ok) throw new Error("No se pudo descargar web_bridge.py");
+                pyodide.FS.writeFile("web_bridge.py", await rb.text());
+
+                pyodideReady = true;
+                ocultarOverlay();
+                return true;
+            } catch (err) {
+                ocultarOverlay();
+                showError("Error al cargar Pyodide: " + err.message);
+                setStatus("Error al cargar el motor de cálculo", "error");
+                pyodideLoading = false;
+                return false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  LISTENERS GLOBALES
+        // ════════════════════════════════════════════════════════════════
+        document.getElementById("sistema").addEventListener("change", e => {
+            estado.sistema = e.target.value;
+            render();
+        });
+
+        document.addEventListener("keydown", e => {
+            if (e.key === "Enter" && e.target.tagName === "INPUT") {
+                if (recalcTimer) clearTimeout(recalcTimer);
+                recalcular();
+            }
+        });
+
+        // ════════════════════════════════════════════════════════════════
+        //  INICIALIZACIÓN
+        // ════════════════════════════════════════════════════════════════
+        document.addEventListener("DOMContentLoaded", () => {
+            render();
+            cargarPyodide().then(ok => {
+                if (ok) {
+                    setStatus("Motor listo · modificá los datos para recalcular", "ready");
+                    scheduleRecalc();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

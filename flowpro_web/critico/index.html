@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tirante y pendiente crítica</title>
+    <meta name="description" content="Tirante crítico (Fr = 1) y pendiente crítica en canales abiertos. Réplica web de la herramienta Critical Depth and Slope de Flow Pro 2.1.">
+    <link rel="stylesheet" href="../../theme.css">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <style>
+        .container { max-width: 1100px; margin: 0 auto; }
+        .subtitulo { text-align: center; font-size: 0.8rem; color: var(--gray); margin: -6px 0 12px; }
+
+        .toolnav { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: -4px 0 12px; }
+        .toolnav a {
+            padding: 6px 12px; font-size: 0.8rem; font-weight: 600; color: var(--fg3);
+            background: var(--bg0-soft); border: 1px solid var(--bg1); border-radius: 6px;
+        }
+        .toolnav a:hover { background: var(--bg1); color: var(--fg0); }
+        .toolnav a.active { background: var(--orange); border-color: var(--orange); color: var(--bg0-hard); }
+
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr 1.05fr; gap: 16px; align-items: start; }
+
+        .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+        .shape {
+            padding: 7px 12px; font-family: inherit; font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; color: var(--fg2); background: var(--bg0-hard);
+            border: 1px solid var(--bg1); border-radius: 6px;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .shape:not(:disabled):hover { background: var(--bg1); color: var(--fg0); }
+        .shape.active { background: var(--orange); border-color: var(--orange); color: var(--bg0-hard); }
+        .shape:disabled { opacity: 0.38; cursor: not-allowed; }
+
+        .io-row { margin-bottom: 10px; }
+        .io-row label { display: block; font-size: 0.78rem; font-weight: 500; color: var(--fg3); margin-bottom: 3px; }
+        .io-wrap { display: flex; align-items: baseline; gap: 8px; }
+        .io-wrap input { flex: 1; }
+        .unit { font-size: 0.72rem; color: var(--gray); white-space: nowrap; min-width: 2.5em; }
+
+        .out-value {
+            flex: 1; padding: 7px 10px; font-size: 0.92rem; font-weight: 600; text-align: right;
+            color: var(--fg0); background: var(--bg0-hard); border: 1px solid var(--bg1);
+            border-radius: 6px; font-variant-numeric: tabular-nums; min-height: 1.9em;
+        }
+        .out-value.dim { color: var(--bg4); font-weight: 400; }
+        .out-value.highlight { color: var(--yellow); border-color: var(--bg3); }
+        .hint { font-size: 0.7rem; color: var(--gray); font-style: italic; margin-top: 6px; }
+
+        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <a class="back" href="../../">← Hidro</a>
+            <h1>Tirante y pendiente crítica</h1>
+        </div>
+        <nav class="toolnav">
+            <a href="../manning/">Tirante normal</a>
+            <a href="./" class="active">Tirante crítico</a>
+            <a href="../perfil/">Perfil de superficie</a>
+            <a href="../orificios/">Orificios</a>
+            <a href="../vertederos/">Vertederos</a>
+            <a href="../compuertas/">Compuertas</a>
+        </nav>
+        <p class="subtitulo">Réplica de la herramienta «Critical Depth and Slope» de Flow Pro 2.1</p>
+
+        <div class="status-bar" id="statusBar">Cargando Pyodide…</div>
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h2>Cálculo</h2>
+                <div class="form-row">
+                    <label for="sistema">Sistema de unidades</label>
+                    <select id="sistema">
+                        <option value="SI">SI — m, m³/s</option>
+                        <option value="English">Inglés — ft, ft³/s</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Tipo de sección</label>
+                    <div class="shapes" id="shapes"></div>
+                    <div class="hint">Las secciones U y circular alargada se añadirán al verificar su geometría.</div>
+                </div>
+                <div class="form-row">
+                    <label>Interpretación</label>
+                    <div class="hint">Si la pendiente del canal S₀ &gt; S<sub>c</sub> ⇒ pendiente fuerte (flujo supercrítico);
+                        si S₀ &lt; S<sub>c</sub> ⇒ pendiente suave (subcrítico).</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Datos</h2>
+                <div id="campos"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Resultados</h2>
+                <div id="salidas"></div>
+            </div>
+        </div>
+
+        <div class="summary-panel" id="summaryPanel">
+            <div class="summary-toggle" id="summaryToggle">
+                <span class="chevron" id="summaryChevron">▶</span>
+                <span class="toggle-label">Memoria de cálculo</span>
+                <button class="btn-copy" id="btnCopy" onclick="event.stopPropagation(); copiarReporte()">📋 Copiar</button>
+            </div>
+            <div class="summary-body" id="summaryBody">
+                <div class="placeholder" id="summaryPlaceholder">La memoria de cálculo se actualiza automáticamente al modificar los datos.</div>
+                <pre id="resultText" style="display:none;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div class="card">
+            <div class="spinner"></div>
+            <div class="mensaje" id="overlayMensaje">Preparando...</div>
+            <div class="submensaje" id="overlaySubmensaje"></div>
+        </div>
+    </div>
+
+    <script>
+        const SISTEMAS = {
+            SI:      { L: "m",  A: "m²", Q: "m³/s",  V: "m/s"  },
+            English: { L: "ft", A: "ft²", Q: "ft³/s", V: "ft/s" },
+        };
+        const FORMAS = [
+            { id: "Trapezoidal",        nombre: "Trapezoidal", ok: true  },
+            { id: "Circular",           nombre: "Circular",    ok: true  },
+            { id: "Ushaped",            nombre: "U",           ok: false },
+            { id: "Elongated circular", nombre: "Circular alargada", ok: false },
+        ];
+
+        const estado = { sistema: "SI", forma: "Trapezoidal",
+                         Q: "15", n: "0.05", b: "5", D: "1.5", m: "0" };
+
+        let pyodide = null, pyodideReady = false, pyodideLoading = false, recalcTimer = null;
+
+        function labelVar(key, U) {
+            switch (key) {
+                case "Q": return { label: "Caudal Q", unit: U.Q };
+                case "n": return { label: "Rugosidad de Manning N", unit: "—" };
+                case "b": return { label: "Ancho de solera b", unit: U.L };
+                case "D": return { label: "Diámetro D", unit: U.L };
+                case "m": return { label: "Talud H:V", unit: "—" };
+            }
+        }
+        function camposEntrada() {
+            return estado.forma === "Circular"
+                ? ["Q", "D", "n"]
+                : ["Q", "b", "n", "m"];
+        }
+
+        function render() {
+            const U = SISTEMAS[estado.sistema];
+
+            document.getElementById("shapes").innerHTML = FORMAS.map(f =>
+                `<button class="shape ${f.id === estado.forma ? "active" : ""}" data-id="${f.id}" ` +
+                `${f.ok ? "" : "disabled"} title="${f.ok ? f.nombre : "Geometría pendiente de verificación"}">${f.nombre}</button>`
+            ).join("");
+            document.querySelectorAll("#shapes .shape").forEach(b =>
+                b.addEventListener("click", () => { estado.forma = b.dataset.id; render(); })
+            );
+
+            document.getElementById("campos").innerHTML = camposEntrada().map(key => {
+                const L = labelVar(key, U);
+                return `<div class="io-row">
+                    <label>${L.label}</label>
+                    <div class="io-wrap">
+                        <input type="number" step="any" data-key="${key}" value="${estado[key] ?? ""}">
+                        <span class="unit">${L.unit}</span>
+                    </div>
+                </div>`;
+            }).join("");
+            document.querySelectorAll("#campos input").forEach(inp =>
+                inp.addEventListener("input", () => { estado[inp.dataset.key] = inp.value; scheduleRecalc(); })
+            );
+
+            const salidas = [
+                { k: "Yc", label: "Tirante crítico Yc",          unit: U.L,   highlight: true },
+                { k: "Sc", label: "Pendiente crítica Sc",        unit: "m/m", highlight: true },
+                { k: "Ac", label: "Área crítica Ac",             unit: U.A },
+                { k: "Vc", label: "Velocidad crítica Vc",        unit: U.V },
+                { k: "Tc", label: "Ancho superior crítico Tc",   unit: U.L },
+                { k: "Rc", label: "Radio hidráulico crítico Rc", unit: U.L },
+            ];
+            document.getElementById("salidas").innerHTML = salidas.map(s =>
+                `<div class="io-row">
+                    <label>${s.label}</label>
+                    <div class="io-wrap">
+                        <div class="out-value dim ${s.highlight ? "highlight" : ""}" data-k="${s.k}">—</div>
+                        <span class="unit">${s.unit}</span>
+                    </div>
+                </div>`
+            ).join("");
+
+            scheduleRecalc();
+        }
+
+        function mostrarOverlay(m, s) {
+            document.getElementById("overlayMensaje").textContent = m;
+            document.getElementById("overlaySubmensaje").textContent = s || "";
+            document.getElementById("overlay").classList.add("visible");
+        }
+        function ocultarOverlay() { document.getElementById("overlay").classList.remove("visible"); }
+        function setStatus(t, c) {
+            const el = document.getElementById("statusBar");
+            el.textContent = t; el.className = "status-bar" + (c ? " " + c : "");
+        }
+        function showError(m) { const el = document.getElementById("errorMsg"); el.textContent = m; el.classList.add("visible"); }
+        function hideError() { const el = document.getElementById("errorMsg"); el.textContent = ""; el.classList.remove("visible"); }
+
+        function scheduleRecalc() { if (recalcTimer) clearTimeout(recalcTimer); recalcTimer = setTimeout(recalcular, 80); }
+        function num(v) { const x = parseFloat(v); return isNaN(x) ? null : x; }
+
+        async function recalcular() {
+            if (!pyodideReady) { const ok = await cargarPyodide(); if (!ok) return; }
+            const params = {
+                sistema: estado.sistema, forma: estado.forma,
+                Q: num(estado.Q), n: num(estado.n),
+                b: num(estado.b), D: num(estado.D), m: num(estado.m),
+            };
+            try {
+                const pj = JSON.stringify(params);
+                const rj = pyodide.runPython(`
+import json
+import web_bridge
+params = json.loads('${pj.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')
+result = web_bridge.ejecutar_simulacion(params)
+json.dumps(result)
+                `);
+                const res = JSON.parse(rj);
+                if (!res.exito) { limpiarUI(); return; }
+                aplicar(res); hideError();
+            } catch (err) { console.error("recalcular:", err); }
+        }
+
+        function fmt(k, v) {
+            if (v === null || v === undefined) return "—";
+            if (k === "Sc") return v.toFixed(6);
+            return v.toFixed(4);
+        }
+
+        function aplicar(res) {
+            document.querySelectorAll("#salidas .out-value").forEach(el => {
+                el.textContent = fmt(el.dataset.k, res[el.dataset.k]);
+                el.classList.remove("dim");
+            });
+            const pre = document.getElementById("resultText");
+            const ph = document.getElementById("summaryPlaceholder");
+            if (res.resultado_texto) { pre.textContent = res.resultado_texto; pre.style.display = "block"; if (ph) ph.style.display = "none"; }
+            setStatus(`Actualizado · ${res.forma}`, "ready");
+        }
+
+        function limpiarUI() {
+            document.querySelectorAll("#salidas .out-value").forEach(el => { el.textContent = "—"; el.classList.add("dim"); });
+            setStatus("Ingrese datos válidos para calcular.", "");
+        }
+
+        document.getElementById("summaryToggle").addEventListener("click", () => {
+            document.getElementById("summaryBody").classList.toggle("open");
+            document.getElementById("summaryChevron").classList.toggle("open");
+        });
+        function copiarReporte() {
+            const text = document.getElementById("resultText").textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById("btnCopy"); const o = btn.textContent;
+                btn.textContent = "✓ Copiado"; setTimeout(() => { btn.textContent = o; }, 1500);
+            }, () => showError("No se pudo copiar al portapapeles."));
+        }
+
+        async function cargarPyodide() {
+            if (pyodideReady) return true;
+            if (pyodideLoading) { while (!pyodideReady) await new Promise(r => setTimeout(r, 200)); return true; }
+            pyodideLoading = true;
+            mostrarOverlay("Cargando Pyodide...", "Descargando el motor de Python para el navegador");
+            try {
+                pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+                mostrarOverlay("Cargando módulos...", "calculos.py y web_bridge.py");
+                const rc = await fetch("calculos.py"); if (!rc.ok) throw new Error("No se pudo descargar calculos.py");
+                pyodide.FS.writeFile("calculos.py", await rc.text());
+                const rb = await fetch("web_bridge.py"); if (!rb.ok) throw new Error("No se pudo descargar web_bridge.py");
+                pyodide.FS.writeFile("web_bridge.py", await rb.text());
+                pyodideReady = true; ocultarOverlay(); return true;
+            } catch (err) {
+                ocultarOverlay(); showError("Error al cargar Pyodide: " + err.message);
+                setStatus("Error al cargar el motor de cálculo", "error"); pyodideLoading = false; return false;
+            }
+        }
+
+        document.getElementById("sistema").addEventListener("change", e => { estado.sistema = e.target.value; render(); });
+        document.addEventListener("keydown", e => {
+            if (e.key === "Enter" && e.target.tagName === "INPUT") { if (recalcTimer) clearTimeout(recalcTimer); recalcular(); }
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            render();
+            cargarPyodide().then(ok => {
+                if (ok) { setStatus("Motor listo · modificá los datos para recalcular", "ready"); scheduleRecalc(); }
+            });
+        });
+    </script>
+</body>
+</html>

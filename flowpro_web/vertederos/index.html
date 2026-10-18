@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertederos</title>
+    <meta name="description" content="Descarga por vertedero rectangular, triangular o Cipolletti; libre o sumergido. Réplica web de la herramienta Weirs de Flow Pro 2.1.">
+    <link rel="stylesheet" href="../../theme.css">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <style>
+        .container { max-width: 1100px; margin: 0 auto; }
+        .subtitulo { text-align: center; font-size: 0.8rem; color: var(--gray); margin: -6px 0 12px; }
+
+        .toolnav { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: -4px 0 12px; }
+        .toolnav a {
+            padding: 6px 12px; font-size: 0.8rem; font-weight: 600; color: var(--fg3);
+            background: var(--bg0-soft); border: 1px solid var(--bg1); border-radius: 6px;
+        }
+        .toolnav a:hover { background: var(--bg1); color: var(--fg0); }
+        .toolnav a.active { background: var(--orange); border-color: var(--orange); color: var(--bg0-hard); }
+
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr 1.05fr; gap: 16px; align-items: start; }
+
+        .shapes, .segs { display: flex; flex-wrap: wrap; gap: 6px; }
+        .shape, .seg {
+            padding: 7px 12px; font-family: inherit; font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; color: var(--fg2); background: var(--bg0-hard);
+            border: 1px solid var(--bg1); border-radius: 6px;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .shape:hover, .seg:hover { background: var(--bg1); color: var(--fg0); }
+        .shape.active, .seg.active { background: var(--orange); border-color: var(--orange); color: var(--bg0-hard); }
+
+        .io-row { margin-bottom: 10px; }
+        .io-row label { display: block; font-size: 0.78rem; font-weight: 500; color: var(--fg3); margin-bottom: 3px; }
+        .io-wrap { display: flex; align-items: baseline; gap: 8px; }
+        .io-wrap input { flex: 1; }
+        .unit { font-size: 0.72rem; color: var(--gray); white-space: nowrap; min-width: 2.2em; }
+
+        .check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .check-row input { flex: 0 0 auto; width: auto; }
+        .check-row label { font-size: 0.8rem; color: var(--fg2); }
+
+        .out-value {
+            flex: 1; padding: 7px 10px; font-size: 0.92rem; font-weight: 600; text-align: right;
+            color: var(--fg0); background: var(--bg0-hard); border: 1px solid var(--bg1);
+            border-radius: 6px; font-variant-numeric: tabular-nums; min-height: 1.9em;
+        }
+        .out-value.dim { color: var(--bg4); font-weight: 400; }
+        .out-value.highlight { color: var(--yellow); border-color: var(--bg3); }
+        .hint { font-size: 0.7rem; color: var(--gray); font-style: italic; margin-top: 6px; }
+
+        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <a class="back" href="../../">← Hidro</a>
+            <h1>Vertederos</h1>
+        </div>
+        <nav class="toolnav" id="nav"></nav>
+        <p class="subtitulo">Réplica de la herramienta «Weirs» de Flow Pro 2.1</p>
+
+        <div class="status-bar" id="statusBar">Cargando Pyodide…</div>
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h2>Cálculo</h2>
+                <div class="form-row">
+                    <label for="sistema">Sistema de unidades</label>
+                    <select id="sistema">
+                        <option value="SI">SI — m, m³/s</option>
+                        <option value="English">Inglés — ft, ft³/s</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Régimen</label>
+                    <div class="segs" id="regimenSeg"></div>
+                </div>
+                <div class="form-row">
+                    <label>Tipo de vertedero</label>
+                    <div class="shapes" id="shapes"></div>
+                </div>
+                <div class="hint" id="hint"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Datos</h2>
+                <div id="campos"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Resultados</h2>
+                <div id="salidas"></div>
+            </div>
+        </div>
+
+        <div class="summary-panel" id="summaryPanel">
+            <div class="summary-toggle" id="summaryToggle">
+                <span class="chevron" id="summaryChevron">▶</span>
+                <span class="toggle-label">Memoria de cálculo</span>
+                <button class="btn-copy" id="btnCopy" onclick="event.stopPropagation(); copiarReporte()">📋 Copiar</button>
+            </div>
+            <div class="summary-body" id="summaryBody">
+                <div class="placeholder" id="summaryPlaceholder">La memoria de cálculo se actualiza automáticamente al modificar los datos.</div>
+                <pre id="resultText" style="display:none;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div class="card">
+            <div class="spinner"></div>
+            <div class="mensaje" id="overlayMensaje">Preparando...</div>
+            <div class="submensaje" id="overlaySubmensaje"></div>
+        </div>
+    </div>
+
+    <script>
+        const SISTEMAS = {
+            SI:      { L: "m",  Q: "m³/s" },
+            English: { L: "ft", Q: "ft³/s" },
+        };
+        const TIPOS = [
+            { id: "Rectangular", nombre: "Rectangular" },
+            { id: "Triangular",  nombre: "Triangular" },
+            { id: "Cipolletti",  nombre: "Cipolletti" },
+        ];
+        const cdDefecto = (tipo, broad) => (broad && tipo !== "Triangular") ? 0.577 : 0.61;
+
+        const estado = {
+            sistema: "SI", tipo: "Rectangular", sumergido: false, broad_crested: false,
+            L: "1", H: "0.3", H2: "0.1", angulo: "90", C: "0.61",
+        };
+
+        // ── Nav común de la suite ────────────────────────────────────────
+        const TOOLS = [
+            ["manning", "Tirante normal"], ["critico", "Tirante crítico"],
+            ["perfil", "Perfil de superficie"], ["orificios", "Orificios"],
+            ["vertederos", "Vertederos"], ["compuertas", "Compuertas"],
+        ];
+        document.getElementById("nav").innerHTML = TOOLS.map(([id, n]) =>
+            `<a href="../${id}/" class="${id === "vertederos" ? "active" : ""}">${n}</a>`
+        ).join("");
+
+        let pyodide = null, pyodideReady = false, pyodideLoading = false, recalcTimer = null;
+
+        function render() {
+            const U = SISTEMAS[estado.sistema];
+
+            document.getElementById("regimenSeg").innerHTML =
+                [["libre", "Libre"], ["sumergido", "Sumergido"]].map(([id, n]) =>
+                    `<button class="seg ${((id === "sumergido") === estado.sumergido) ? "active" : ""}" data-id="${id}">${n}</button>`
+                ).join("");
+            document.querySelectorAll("#regimenSeg .seg").forEach(b =>
+                b.addEventListener("click", () => { estado.sumergido = (b.dataset.id === "sumergido"); render(); })
+            );
+
+            document.getElementById("shapes").innerHTML = TIPOS.map(f =>
+                `<button class="shape ${f.id === estado.tipo ? "active" : ""}" data-id="${f.id}">${f.nombre}</button>`
+            ).join("");
+            document.querySelectorAll("#shapes .shape").forEach(b =>
+                b.addEventListener("click", () => {
+                    estado.tipo = b.dataset.id;
+                    estado.C = cdDefecto(estado.tipo, estado.broad_crested).toString();
+                    render();
+                })
+            );
+
+            document.getElementById("hint").textContent =
+                estado.tipo === "Triangular"
+                    ? "Q = C·(8/15)·√(2g)·tan(θ/2)·H^2.5"
+                    : (estado.broad_crested ? "Q = C·(2/3)·√(2g)·L·H^1.5 — C teórico cresta ancha ≈ 0.577"
+                                            : "Q = C·(2/3)·√(2g)·L·H^1.5");
+
+            // Campos
+            const campos = [];
+            if (estado.tipo === "Triangular") campos.push({ k: "angulo", label: "Ángulo del V (θ)", unit: "°" });
+            else campos.push({ k: "L", label: "Longitud de cresta L", unit: U.L });
+            campos.push({ k: "H", label: "Carga aguas arriba H₁", unit: U.L });
+            if (estado.sumergido) campos.push({ k: "H2", label: "Carga aguas abajo H₂", unit: U.L });
+            campos.push({ k: "C", label: "Coeficiente de descarga C", unit: "—" });
+
+            let html = campos.map(c =>
+                `<div class="io-row">
+                    <label>${c.label}</label>
+                    <div class="io-wrap">
+                        <input type="number" step="any" data-key="${c.k}" value="${estado[c.k] ?? ""}">
+                        <span class="unit">${c.unit}</span>
+                    </div>
+                </div>`
+            ).join("");
+
+            if (estado.tipo !== "Triangular" && !estado.sumergido) {
+                html += `<div class="check-row">
+                    <input type="checkbox" id="chkBroad" ${estado.broad_crested ? "checked" : ""}>
+                    <label for="chkBroad">Cresta ancha (broad-crested)</label>
+                </div>`;
+            }
+            document.getElementById("campos").innerHTML = html;
+
+            document.querySelectorAll("#campos input[type=number]").forEach(inp =>
+                inp.addEventListener("input", () => { estado[inp.dataset.key] = inp.value; scheduleRecalc(); })
+            );
+            const chk = document.getElementById("chkBroad");
+            if (chk) chk.addEventListener("change", () => {
+                estado.broad_crested = chk.checked;
+                estado.C = cdDefecto(estado.tipo, estado.broad_crested).toString();
+                render();
+            });
+
+            // Salidas
+            const salidas = [{ k: "Q", label: "Caudal Q", unit: U.Q, highlight: true }];
+            if (estado.sumergido) salidas.push({ k: "Qf", label: "Caudal libre equivalente Qf", unit: U.Q });
+            document.getElementById("salidas").innerHTML = salidas.map(s =>
+                `<div class="io-row">
+                    <label>${s.label}</label>
+                    <div class="io-wrap">
+                        <div class="out-value dim ${s.highlight ? "highlight" : ""}" data-k="${s.k}">—</div>
+                        <span class="unit">${s.unit}</span>
+                    </div>
+                </div>`
+            ).join("");
+
+            scheduleRecalc();
+        }
+
+        function mostrarOverlay(m, s) {
+            document.getElementById("overlayMensaje").textContent = m;
+            document.getElementById("overlaySubmensaje").textContent = s || "";
+            document.getElementById("overlay").classList.add("visible");
+        }
+        function ocultarOverlay() { document.getElementById("overlay").classList.remove("visible"); }
+        function setStatus(t, c) {
+            const el = document.getElementById("statusBar");
+            el.textContent = t; el.className = "status-bar" + (c ? " " + c : "");
+        }
+        function showError(m) { const el = document.getElementById("errorMsg"); el.textContent = m; el.classList.add("visible"); }
+        function hideError() { const el = document.getElementById("errorMsg"); el.textContent = ""; el.classList.remove("visible"); }
+
+        function scheduleRecalc() { if (recalcTimer) clearTimeout(recalcTimer); recalcTimer = setTimeout(recalcular, 80); }
+        function num(v) { const x = parseFloat(v); return isNaN(x) ? null : x; }
+
+        async function recalcular() {
+            if (!pyodideReady) { const ok = await cargarPyodide(); if (!ok) return; }
+            const params = {
+                sistema: estado.sistema, tipo: estado.tipo,
+                sumergido: estado.sumergido, broad_crested: estado.broad_crested,
+                L: num(estado.L), H: num(estado.H), H2: num(estado.H2),
+                angulo: num(estado.angulo), C: num(estado.C),
+            };
+            try {
+                const pj = JSON.stringify(params);
+                const rj = pyodide.runPython(`
+import json
+import web_bridge
+params = json.loads('${pj.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')
+result = web_bridge.ejecutar_simulacion(params)
+json.dumps(result)
+                `);
+                const res = JSON.parse(rj);
+                if (!res.exito) { limpiarUI(); return; }
+                aplicar(res); hideError();
+            } catch (err) { console.error("recalcular:", err); }
+        }
+
+        function aplicar(res) {
+            document.querySelectorAll("#salidas .out-value").forEach(el => {
+                const v = res[el.dataset.k];
+                el.textContent = (v === null || v === undefined) ? "—" : v.toFixed(6);
+                el.classList.remove("dim");
+            });
+            const pre = document.getElementById("resultText");
+            const ph = document.getElementById("summaryPlaceholder");
+            if (res.resultado_texto) { pre.textContent = res.resultado_texto; pre.style.display = "block"; if (ph) ph.style.display = "none"; }
+            setStatus(`Actualizado · ${res.tipo}${res.broad_crested ? " (cresta ancha)" : ""} · ${res.sumergido ? "sumergido" : "libre"}`, "ready");
+        }
+
+        function limpiarUI() {
+            document.querySelectorAll("#salidas .out-value").forEach(el => { el.textContent = "—"; el.classList.add("dim"); });
+            setStatus("Ingrese datos válidos para calcular.", "");
+        }
+
+        document.getElementById("summaryToggle").addEventListener("click", () => {
+            document.getElementById("summaryBody").classList.toggle("open");
+            document.getElementById("summaryChevron").classList.toggle("open");
+        });
+        function copiarReporte() {
+            const text = document.getElementById("resultText").textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById("btnCopy"); const o = btn.textContent;
+                btn.textContent = "✓ Copiado"; setTimeout(() => { btn.textContent = o; }, 1500);
+            }, () => showError("No se pudo copiar al portapapeles."));
+        }
+
+        async function cargarPyodide() {
+            if (pyodideReady) return true;
+            if (pyodideLoading) { while (!pyodideReady) await new Promise(r => setTimeout(r, 200)); return true; }
+            pyodideLoading = true;
+            mostrarOverlay("Cargando Pyodide...", "Descargando el motor de Python para el navegador");
+            try {
+                pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+                mostrarOverlay("Cargando módulos...", "calculos.py y web_bridge.py");
+                const rc = await fetch("calculos.py"); if (!rc.ok) throw new Error("No se pudo descargar calculos.py");
+                pyodide.FS.writeFile("calculos.py", await rc.text());
+                const rb = await fetch("web_bridge.py"); if (!rb.ok) throw new Error("No se pudo descargar web_bridge.py");
+                pyodide.FS.writeFile("web_bridge.py", await rb.text());
+                pyodideReady = true; ocultarOverlay(); return true;
+            } catch (err) {
+                ocultarOverlay(); showError("Error al cargar Pyodide: " + err.message);
+                setStatus("Error al cargar el motor de cálculo", "error"); pyodideLoading = false; return false;
+            }
+        }
+
+        document.getElementById("sistema").addEventListener("change", e => { estado.sistema = e.target.value; render(); });
+        document.addEventListener("keydown", e => {
+            if (e.key === "Enter" && e.target.tagName === "INPUT") { if (recalcTimer) clearTimeout(recalcTimer); recalcular(); }
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            render();
+            cargarPyodide().then(ok => {
+                if (ok) { setStatus("Motor listo · modificá los datos para recalcular", "ready"); scheduleRecalc(); }
+            });
+        });
+    </script>
+</body>
+</html>
