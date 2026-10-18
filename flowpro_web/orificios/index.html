@@ -224,7 +224,7 @@ result = web_bridge.ejecutar_simulacion(params)
 json.dumps(result)
                 `);
                 const res = JSON.parse(rj);
-                if (!res.exito) { limpiarUI(); return; }
+                if (!res.exito) { limpiarUI(); showError(res.error || "Ingrese datos válidos para calcular"); return; }
                 aplicar(res); hideError();
             } catch (err) { console.error("recalcular:", err); }
         }
